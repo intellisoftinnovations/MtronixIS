@@ -168,3 +168,43 @@ class InventoryServiceTests(TestCase):
         dup_form = ProductForm(data={"name": "Another", "sku": product.sku})
         self.assertFalse(dup_form.is_valid())
         self.assertIn("sku", dup_form.errors)
+
+    def test_carton_edit_post_succeeds_with_disabled_fields(self):
+        from django.urls import reverse
+
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["session_version"] = self.user.session_version
+        session.save()
+
+        resp = self.client.post(
+            reverse("inventory:carton_edit", args=[self.carton.pk]),
+            {
+                "carton_code": "CTN-01-EDITED",
+                "qty_per_carton": 15,
+                "status": Carton.Status.ON_HOLD,
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.carton.refresh_from_db()
+        self.assertEqual(self.carton.carton_code, "CTN-01-EDITED")
+        self.assertEqual(self.carton.qty_per_carton, 15)
+        self.assertEqual(self.carton.status, Carton.Status.ON_HOLD)
+        # Disabled fields remain unchanged
+        self.assertEqual(self.carton.carton_count, 20)
+        self.assertEqual(self.carton.product_id, self.product.pk)
+        self.assertEqual(self.carton.inventory_id, self.inventory.pk)
+
+    def test_closed_on_hold_and_damaged_carton_status_blocks_movements(self):
+        self.carton.status = Carton.Status.CLOSED
+        self.carton.save(update_fields=["status"])
+        with self.assertRaises(StockError):
+            record_movement(user=self.user, carton_id=self.carton.pk, movement_type=StockMovement.Type.IN, cartons=1)
+        with self.assertRaises(StockError):
+            record_movement(user=self.user, carton_id=self.carton.pk, movement_type=StockMovement.Type.OUT, cartons=1)
+
+        for blocked_out_status in (Carton.Status.ON_HOLD, Carton.Status.DAMAGED):
+            self.carton.status = blocked_out_status
+            self.carton.save(update_fields=["status"])
+            with self.assertRaises(StockError):
+                record_movement(user=self.user, carton_id=self.carton.pk, movement_type=StockMovement.Type.OUT, cartons=1)

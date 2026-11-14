@@ -22,8 +22,10 @@ class StyledFormMixin:
                 w.attrs.setdefault("class", "input select")
             else:
                 w.attrs.setdefault("class", "input")
-            if self.errors.get(name):
-                w.attrs["class"] += " is-invalid"
+            errors = self._errors or {}
+            if errors.get(name):
+                if "is-invalid" not in w.attrs.get("class", ""):
+                    w.attrs["class"] += " is-invalid"
                 w.attrs["aria-invalid"] = "true"
 
     def full_clean(self):
@@ -98,6 +100,10 @@ class CartonForm(StyledFormMixin, forms.ModelForm):
         self.fields["product"].queryset = Product.objects.alive()
         self.fields["inventory"].queryset = allowed_inventories(user, include_archived=False)
         if self.instance.pk:
+            # Product & inventory are fixed after creation (transfers are logged separately).
+            for f in ("product", "inventory"):
+                self.fields[f].disabled = True
+                self.fields[f].queryset = self.fields[f].queryset.model.objects.all()
             # Stock count is changed only through Stock In / Stock Out so every change gets a receipt.
             self.fields["carton_count"].disabled = True
             self.fields["carton_count"].help_text = "Use Scan QR → Stock In / Out to change stock."

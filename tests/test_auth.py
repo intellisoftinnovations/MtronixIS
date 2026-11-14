@@ -141,3 +141,48 @@ class SessionPersistenceTests(TestCase):
         resp = self.client.get(reverse("inventory:dashboard"))
         self.assertEqual(resp.status_code, 302)
         self.assertIn(reverse("accounts:login"), resp.headers["Location"])
+
+    def test_logout_rejects_get_request(self):
+        self.client.post(
+            reverse("accounts:login"),
+            {"email": "persistent@mtronix.local", "password": "SecurePassword123!"},
+        )
+        resp = self.client.get(reverse("accounts:logout"))
+        self.assertEqual(resp.status_code, 405)
+
+    def test_admin_user_edit_logs_role_change_and_bumps_session_version(self):
+        from audit.models import ActivityLog
+
+        admin = User.objects.create_user(
+            email="superadmin@mtronix.local",
+            password="AdminPassword123!",
+            name="Super Admin",
+            role=User.Role.ADMIN,
+            totp_secret=pyotp.random_base32(),
+            totp_enabled=True,
+        )
+        self.client.force_login(admin)
+        session = self.client.session
+        session["session_version"] = admin.session_version
+        session.save()
+
+        old_version = self.user.session_version
+        resp = self.client.post(
+            reverse("accounts:user_edit", args=[self.user.pk]),
+            {
+                "name": self.user.name,
+                "phone": "",
+                "role": User.Role.ADMIN,
+                "is_active": "on",
+            },
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, User.Role.ADMIN)
+        self.assertEqual(self.user.session_version, old_version + 1)
+        self.assertTrue(
+            ActivityLog.objects.filter(
+                action=ActivityLog.Action.ROLE_CHANGE,
+                entity_id=str(self.user.pk),
+            ).exists()
+        )

@@ -23,8 +23,14 @@
       <option value="">All inventories</option>
       {% for inv in inventories %}<option value="{{ inv.pk }}" {% if request.GET.inventory == inv.pk|slugify %}selected{% endif %}>{{ inv.name }}</option>{% endfor %}
     </select>
+    {% if request.user.is_admin %}
+    <select name="status" class="input select">
+      <option value="">Active products</option>
+      <option value="deleted" {% if request.GET.status == "deleted" %}selected{% endif %}>Deleted products</option>
+    </select>
+    {% endif %}
     <button class="btn btn-sm">{% icon "search" 16 %} Filter</button>
-    {% if request.GET.q or request.GET.inventory %}<a href="{% url 'inventory:product_list' %}" class="btn btn-sm btn-secondary">Clear</a>{% endif %}
+    {% if request.GET.q or request.GET.inventory or request.GET.status %}<a href="{% url 'inventory:product_list' %}" class="btn btn-sm btn-secondary">Clear</a>{% endif %}
   </form>
 
   <form id="bulkProductPrintForm" method="get" action="{% url 'inventory:labels_print' %}">

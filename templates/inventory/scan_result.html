@@ -26,6 +26,9 @@
 
   {% if mode == "carton" %}
   {# ---- Stock In / Out form ---- #}
+  {% if carton.status != "ACTIVE" %}
+  <div class="toast toast-warning">This carton is marked <strong>{{ carton.get_status_display }}</strong>.{% if carton.status == "CLOSED" %} Stock movements are blocked.{% else %} Stock Out is blocked while {{ carton.get_status_display|lower }}.{% endif %}</div>
+  {% endif %}
   {% if error %}<div class="toast toast-error">{{ error }}</div>{% endif %}
   <div class="scan-actions card glass">
     <form method="post" action="{% url 'inventory:stock_confirm' %}" novalidate>

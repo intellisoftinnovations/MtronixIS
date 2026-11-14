@@ -10,14 +10,12 @@ from inventory.views.common import csv_response, date_range_filter, paginate, sa
 from inventory.timeutils import format_bd, parse_date
 
 
-@login_required
-def log_list(request):
+def _filtered_logs(request):
     user = request.user
     qs = ActivityLog.objects.select_related("user", "product", "inventory", "movement")
     if not user.is_admin:
         qs = qs.filter(Q(inventory__isnull=True, user=user) | inventory_filter_q(user))
 
-    # Filters
     q = request.GET.get("q", "").strip()
     if q:
         qs = qs.filter(
@@ -32,7 +30,13 @@ def log_list(request):
         qs = qs.filter(inventory_id=inv)
     if prod := safe_int(request.GET.get("product")):
         qs = qs.filter(product_id=prod)
-    qs = date_range_filter(qs, "created_at", parse_date(request.GET.get("from")), parse_date(request.GET.get("to")))
+    return date_range_filter(qs, "created_at", parse_date(request.GET.get("from")), parse_date(request.GET.get("to")))
+
+
+@login_required
+def log_list(request):
+    user = request.user
+    qs = _filtered_logs(request)
 
     User = get_user_model()
     users = User.objects.all().order_by("name") if user.is_admin else None
@@ -51,15 +55,7 @@ def log_list(request):
 
 @login_required
 def log_export(request):
-    user = request.user
-    qs = ActivityLog.objects.select_related("user", "product", "inventory", "movement").order_by("-created_at")
-    if not user.is_admin:
-        qs = qs.filter(Q(inventory__isnull=True, user=user) | inventory_filter_q(user))
-
-    action = request.GET.get("action")
-    if action and action in ActivityLog.Action.values:
-        qs = qs.filter(action=action)
-    qs = date_range_filter(qs, "created_at", parse_date(request.GET.get("from")), parse_date(request.GET.get("to")))
+    qs = _filtered_logs(request).order_by("-created_at")
 
     from audit.utils import log_action
     log_action(request, ActivityLog.Action.EXPORT, entity_type="ActivityLog", entity_repr=f"Activity Log CSV ({qs.count()} rows)")

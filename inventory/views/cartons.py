@@ -137,10 +137,6 @@ def carton_edit(request, pk):
     carton = get_object_or_404(cartons_for(request.user), pk=pk)
     old = snapshot(carton, CARTON_FIELDS)
     form = CartonForm(request.POST or None, instance=carton, user=request.user)
-    # Product & inventory are fixed after creation (transfers are logged separately).
-    for f in ("product", "inventory"):
-        form.fields[f].disabled = True
-        form.fields[f].queryset = form.fields[f].queryset.model.objects.all()
     if request.method == "POST" and form.is_valid():
         carton = form.save()
         o, n = diff(old, snapshot(carton, CARTON_FIELDS))

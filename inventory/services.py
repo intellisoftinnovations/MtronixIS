@@ -35,10 +35,18 @@ def next_receipt_no(movement_type, when):
     return f"{base}{n:04d}"
 
 
+def _validate_carton_status(carton, movement_type):
+    if carton.status == Carton.Status.CLOSED:
+        raise StockError("This carton is closed and cannot be moved.")
+    if movement_type == StockMovement.Type.OUT and carton.status in (Carton.Status.ON_HOLD, Carton.Status.DAMAGED):
+        raise StockError(f"Cannot stock out from a carton that is {carton.get_status_display().lower()}.")
+
+
 def preview_movement(carton, movement_type, cartons):
     """Compute before/after without saving; raises StockError when invalid."""
     if cartons < 1:
         raise StockError("Enter at least 1 carton.")
+    _validate_carton_status(carton, movement_type)
     before = carton.carton_count
     if movement_type == StockMovement.Type.OUT:
         if cartons > before:
@@ -87,6 +95,7 @@ def record_movement(*, user, carton_id, movement_type, cartons, note="", referen
                     raise StockError("This inventory is archived.")
                 if carton.product.is_deleted:
                     raise StockError("This product has been deleted.")
+                _validate_carton_status(carton, movement_type)
 
                 # Atomic conditional update — can never go negative, even under concurrency.
                 if movement_type == StockMovement.Type.OUT:

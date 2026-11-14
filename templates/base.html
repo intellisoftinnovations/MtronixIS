@@ -43,7 +43,10 @@
       <div class="topbar-actions">
         <a href="{% url 'inventory:scan' %}" class="btn btn-sm" title="Scan QR">{% icon "scan" 18 %}<span class="hide-mobile"> Scan</span></a>
         <a href="{% url 'accounts:profile' %}" class="icon-btn" title="Profile">{% icon "user" %}</a>
-        <a href="{% url 'accounts:logout' %}" class="icon-btn" title="Sign out">{% icon "logout" %}</a>
+        <form method="post" action="{% url 'accounts:logout' %}" class="inline">
+          {% csrf_token %}
+          <button type="submit" class="icon-btn" title="Sign out">{% icon "logout" %}</button>
+        </form>
       </div>
     </header>
 
@@ -89,7 +92,10 @@
       <a href="{% url 'accounts:change_password' %}" class="sheet-item">{% icon "edit" 22 %}<span>Password</span></a>
       <a href="{% url 'inventory:scan' %}" class="sheet-item">{% icon "scan" 22 %}<span>Scan QR</span></a>
     </div>
-    <a href="{% url 'accounts:logout' %}" class="btn btn-danger btn-block sheet-logout">{% icon "logout" 18 %} Sign out</a>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger btn-block sheet-logout">{% icon "logout" 18 %} Sign out</button>
+    </form>
   </div>
 </div>
 

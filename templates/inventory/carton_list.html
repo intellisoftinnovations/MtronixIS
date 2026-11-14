@@ -21,7 +21,14 @@
     <input name="q" class="input" placeholder="Search code, product…" value="{{ request.GET.q }}">
     <select name="inventory" class="input select"><option value="">All inventories</option>{% for inv in inventories %}<option value="{{ inv.pk }}" {% if request.GET.inventory == inv.pk|slugify %}selected{% endif %}>{{ inv.name }}</option>{% endfor %}</select>
     <select name="status" class="input select"><option value="">All statuses</option>{% for val, label in statuses %}<option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    {% if request.user.is_admin %}
+    <select name="deleted" class="input select">
+      <option value="">Active cartons</option>
+      <option value="1" {% if request.GET.deleted == "1" %}selected{% endif %}>Deleted cartons</option>
+    </select>
+    {% endif %}
     <button class="btn btn-sm">{% icon "filter" 16 %} Filter</button>
+    {% if request.GET.q or request.GET.inventory or request.GET.status or request.GET.deleted %}<a href="{% url 'inventory:carton_list' %}" class="btn btn-sm btn-secondary">Clear</a>{% endif %}
   </form>
 
   <div class="summary-bar text-muted text-sm">Total: {{ totals.c|intcomma }} cartons · {{ totals.u|intcomma }} units</div>

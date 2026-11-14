@@ -114,6 +114,7 @@ def verify_2fa(request):
 
 
 @login_required
+@require_POST
 def logout_view(request):
     log_action(request, ActivityLog.Action.LOGOUT, entity_type="User", entity_repr=str(request.user))
     logout(request)
@@ -293,11 +294,13 @@ def user_accept_invite(request, uidb64, token):
 @admin_required
 def user_edit(request, pk):
     target = get_object_or_404(User, pk=pk)
+    old_role = target.role
     form = UserEditForm(request.POST or None, instance=target)
     if request.method == "POST" and form.is_valid():
-        old_role = target.role
         user = form.save()
         if old_role != user.role:
+            user.session_version += 1
+            user.save(update_fields=["session_version"])
             log_action(request, ActivityLog.Action.ROLE_CHANGE, obj=user,
                        old={"role": old_role}, new={"role": user.role})
         messages.success(request, "User updated.")

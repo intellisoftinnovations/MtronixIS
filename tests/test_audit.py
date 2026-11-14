@@ -40,3 +40,30 @@ class AuditLogImmutabilityTests(TestCase):
         with self.assertRaises(ImmutableLogError):
             ActivityLog.objects.filter(pk=self.log.pk).delete()
 
+    def test_log_export_applies_q_filter(self):
+        import pyotp
+        from django.urls import reverse
+
+        self.user.totp_secret = pyotp.random_base32()
+        self.user.totp_enabled = True
+        self.user.save(update_fields=["totp_secret", "totp_enabled"])
+
+        ActivityLog.objects.create(
+            user=self.user,
+            user_display="Audit User (admin)",
+            action=ActivityLog.Action.CREATE,
+            entity_type="Product",
+            entity_id="99",
+            entity_repr="UNIQUE-EXPORT-MATCH",
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["session_version"] = self.user.session_version
+        session.save()
+
+        resp = self.client.get(reverse("audit:log_export"), {"q": "UNIQUE-EXPORT-MATCH"})
+        self.assertEqual(resp.status_code, 200)
+        body = resp.content.decode("utf-8")
+        self.assertIn("UNIQUE-EXPORT-MATCH", body)
+        self.assertNotIn(self.user.email, body)
+
