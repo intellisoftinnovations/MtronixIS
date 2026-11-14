@@ -1,0 +1,36 @@
+{% extends "base_bare.html" %}
+{% load static mtx %}
+
+{% block title %}Sign in · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card glass-strong">
+    <div class="auth-logo">{% icon "box" 36 %}<span>{{ SYSTEM_NAME }}</span></div>
+    <h1>Sign in</h1>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="field">
+        <label for="id_email">Email</label>
+        {{ form.email }}
+        {% if form.email.errors %}<p class="field-error">{{ form.email.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field">
+        <label for="id_password">Password</label>
+        {{ form.password }}
+        {% if form.password.errors %}<p class="field-error">{{ form.password.errors.0 }}</p>{% endif %}
+      </div>
+      <div class="field" style="margin-top: 14px; margin-bottom: 22px;">
+        <label style="display:flex; align-items:center; gap:9px; cursor:pointer; font-size:13.5px; color:var(--text); font-weight:normal;">
+          <input type="checkbox" name="remember_me" id="id_remember_me" checked style="accent-color:var(--accent); width:17px; height:17px; cursor:pointer;">
+          <span>Remember this device (Stay signed in)</span>
+        </label>
+      </div>
+      {% if form.non_field_errors %}<p class="field-error">{{ form.non_field_errors.0 }}</p>{% endif %}
+      <button type="submit" class="btn btn-block">Sign in</button>
+    </form>
+  </div>
+  <p class="auth-footer">{{ SYSTEM_NAME }} · Carton Inventory System</p>
+</div>
+{% endblock %}
+

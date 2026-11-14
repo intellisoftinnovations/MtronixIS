@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}Inventories{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{% icon "warehouse" %} Inventories</h2>
+  {% if request.user.is_admin %}<a href="{% url 'inventory:inventory_create' %}" class="btn">{% icon "plus" 18 %} Add inventory</a>{% endif %}
+</div>
+
+<div class="card glass">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Name</th><th>Code</th><th>Location</th><th class="num">Lines</th><th class="num">Cartons</th><th class="num">Units</th><th class="num">Low</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for inv in inventories %}
+        <tr>
+          <td><a href="{{ inv.get_absolute_url }}"><strong>{{ inv.name }}</strong></a></td>
+          <td>{{ inv.code }}</td>
+          <td>{{ inv.location }}</td>
+          <td class="num">{{ inv.carton_lines|intcomma }}</td>
+          <td class="num">{{ inv.total_cartons|intcomma }}</td>
+          <td class="num">{{ inv.total_units|intcomma }}</td>
+          <td class="num">{% if inv.low_count %}<span class="badge badge-warning">{{ inv.low_count }}</span>{% else %}—{% endif %}</td>
+          <td class="action-cell">
+            <a href="{% url 'inventory:inventory_edit' inv.pk %}" class="icon-btn" title="Edit">{% icon "edit" 16 %}</a>
+            {% if request.user.is_admin %}<form method="post" action="{% url 'inventory:inventory_archive' inv.pk %}" class="inline">{% csrf_token %}<button class="icon-btn" title="{% if inv.is_archived %}Unarchive{% else %}Archive{% endif %}">{% icon "archive" 16 %}</button></form>{% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-muted">No inventories.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+

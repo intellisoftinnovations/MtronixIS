@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="scan-result-page">
+  {# ---- Product info ---- #}
+  <div class="scan-product card glass">
+    <div class="scan-product-img">
+      {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span class="detail-no-image">{% icon "image" 48 %}</span>{% endif %}
+    </div>
+    <div class="scan-product-info">
+      <h2>{{ product.name }}</h2>
+      <p class="text-muted">SKU: {{ product.sku }}</p>
+      {% if mode == "carton" %}
+      <p>Inventory: <strong>{{ carton.inventory.name }}</strong> ({{ carton.inventory.code }})</p>
+      <p>Carton: <strong>{{ carton.carton_code }}</strong></p>
+      <div class="scan-stock">
+        <span class="stat-num">{{ carton.carton_count|intcomma }}</span>
+        <span class="text-muted">cartons ({{ carton.total_quantity|intcomma }} units)</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if mode == "carton" %}
+  {# ---- Stock In / Out form ---- #}
+  {% if error %}<div class="toast toast-error">{{ error }}</div>{% endif %}
+  <div class="scan-actions card glass">
+    <form method="post" action="{% url 'inventory:stock_confirm' %}" novalidate>
+      {% csrf_token %}
+      {{ form.carton_id }}
+      {{ form.idempotency_key }}
+      <div class="stock-type-btns">
+        <label class="stock-type-btn stock-in{% if form.type.value == 'IN' %} selected{% endif %}">
+          <input type="radio" name="type" value="IN" {% if form.type.value == 'IN' or not form.type.value %}checked{% endif %}> {% icon "arrow-down" 20 %} Stock In
+        </label>
+        <label class="stock-type-btn stock-out{% if form.type.value == 'OUT' %} selected{% endif %}">
+          <input type="radio" name="type" value="OUT" {% if form.type.value == 'OUT' %}checked{% endif %}> {% icon "arrow-up" 20 %} Stock Out
+        </label>
+      </div>
+      <div class="field">
+        <label>Cartons</label>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" onclick="stepQty(-1)">−</button>
+          <input type="number" name="cartons" class="input stepper-input" value="{{ form.cartons.value|default:1 }}" min="1" inputmode="numeric" id="qtyInput">
+          <button type="button" class="stepper-btn" onclick="stepQty(1)">+</button>
+        </div>
+        <div class="qty-chips">
+          <button type="button" class="qty-chip" onclick="setQty(1)">1</button>
+          <button type="button" class="qty-chip" onclick="stepQty(5)">+5</button>
+          <button type="button" class="qty-chip" onclick="stepQty(10)">+10</button>
+          <button type="button" class="qty-chip" onclick="stepQty(50)">+50</button>
+          <button type="button" class="qty-chip" onclick="stepQty(100)">+100</button>
+        </div>
+        {% for e in form.cartons.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      </div>
+      <div class="field"><label>{{ form.reference.label }}</label><input name="reference" class="input" value="{{ form.reference.value|default:'' }}" maxlength="100" autocomplete="off"></div>
+      <div class="field"><label>{{ form.note.label }}</label><textarea name="note" class="input" rows="2" maxlength="500">{{ form.note.value|default:'' }}</textarea></div>
+      <div class="sticky-submit">
+        <button type="submit" class="btn btn-block">Review &amp; Confirm</button>
+      </div>
+    </form>
+  </div>
+  <script>
+  function stepQty(d){const i=document.getElementById('qtyInput');i.value=Math.max(1,parseInt(i.value||1)+d);}
+  function setQty(v){document.getElementById('qtyInput').value=v;}
+  document.querySelectorAll('.stock-type-btn').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.stock-type-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');}));
+  </script>
+
+  {% elif mode == "product" %}
+  {# ---- Product-level: choose a carton ---- #}
+  <div class="card glass">
+    <h3>Select a carton to Stock In / Out</h3>
+    {% for c in cartons %}
+    <a href="{% url 'inventory:scan_result' c.qr_token %}" class="choose-item glass">
+      <strong>{{ c.carton_code }}</strong>
+      <span>{{ c.inventory.name }} · {{ c.carton_count|intcomma }} cartons</span>
+    </a>
+    {% empty %}
+    <p class="text-muted">No cartons for this product in your inventories.</p>
+    {% endfor %}
+    <a href="{% url 'inventory:carton_create' %}?product={{ product.pk }}" class="btn btn-secondary" style="margin-top:12px">{% icon "plus" 16 %} Add carton for this product</a>
+  </div>
+  {% endif %}
+
+  <div style="text-align:center;margin-top:16px"><a href="{% url 'inventory:scan' %}" class="btn btn-secondary">{% icon "scan" 16 %} Scan another</a></div>
+</div>
+{% endblock %}
+

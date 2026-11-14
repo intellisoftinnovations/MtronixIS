@@ -1,0 +1,30 @@
+{% extends "base_bare.html" %}
+{% load mtx %}
+
+{% block title %}Set Your Password · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card glass-strong">
+    <div class="auth-logo">{% icon "box" 36 %}<span>{{ SYSTEM_NAME }}</span></div>
+    <h1>Welcome, {{ user.name }}!</h1>
+    <p class="text-muted" style="margin-bottom:20px">Please choose a secure password to activate your account.</p>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+        {% for e in field.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+      {% for e in form.non_field_errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      <button type="submit" class="btn btn-block" style="margin-top:10px">Set Password &amp; Continue</button>
+    </form>
+  </div>
+  <p class="auth-footer">{{ SYSTEM_NAME }} · Carton Inventory System</p>
+</div>
+{% endblock %}
+

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}{{ mv.receipt_no }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass">
+    <div class="page-header">
+      <h2><span class="badge badge-{% if mv.is_in %}success{% else %}danger{% endif %}" style="font-size:14px">{{ mv.get_type_display }}</span> {{ mv.receipt_no }}</h2>
+      <a href="{% url 'inventory:movement_pdf' mv.pk %}?download=1" class="btn btn-sm">{% icon "download" 16 %} PDF</a>
+    </div>
+    <div class="confirm-details">
+      <div class="confirm-row"><span class="text-muted">Date &amp; time</span>{{ mv.created_at|bdtime }}</div>
+      <div class="confirm-row"><span class="text-muted">Product</span><a href="{{ mv.product.get_absolute_url }}">{{ mv.product.name }}</a></div>
+      <div class="confirm-row"><span class="text-muted">SKU</span>{{ mv.product.sku }}</div>
+      <div class="confirm-row"><span class="text-muted">Carton</span><a href="{{ mv.carton.get_absolute_url }}">{{ mv.carton.carton_code }}</a></div>
+      <div class="confirm-row"><span class="text-muted">Inventory</span><a href="{{ mv.inventory.get_absolute_url }}">{{ mv.inventory.name }}</a></div>
+      <div class="confirm-row"><span class="text-muted">Cartons moved</span>{% if mv.is_in %}+{% else %}-{% endif %}{{ mv.cartons_moved|intcomma }}</div>
+      <div class="confirm-row"><span class="text-muted">Qty per carton</span>{{ mv.qty_per_carton|intcomma }}</div>
+      <div class="confirm-row"><span class="text-muted">Total quantity</span>{% if mv.is_in %}+{% else %}-{% endif %}{{ mv.qty_moved|intcomma }} units</div>
+      <div class="confirm-row"><span class="text-muted">Before</span>{{ mv.cartons_before|intcomma }} cartons · {{ mv.stock_before|intcomma }} units</div>
+      <div class="confirm-row"><span class="text-muted">After</span>{{ mv.cartons_after|intcomma }} cartons · {{ mv.stock_after|intcomma }} units</div>
+      <div class="confirm-row"><span class="text-muted">Performed by</span>{{ mv.user_display }} ({{ mv.user_role }})</div>
+      {% if mv.reference %}<div class="confirm-row"><span class="text-muted">Reference</span>{{ mv.reference }}</div>{% endif %}
+      {% if mv.note %}<div class="confirm-row"><span class="text-muted">Note</span>{{ mv.note }}</div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+

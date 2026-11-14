@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}Cartons{% endblock %}
+{% block title %}Cartons · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{% icon "box" %} Cartons <span class="badge badge-muted">{{ total }}</span></h2>
+  <div class="page-actions">
+    <button type="submit" form="bulkPrintForm" id="bulkPrintBtn" class="btn btn-secondary btn-sm" disabled style="opacity:0.6">
+      {% icon "qr" 16 %}<span>Print (<span id="selectedCount">0</span>)</span>
+    </button>
+    <a href="{% url 'inventory:carton_export' %}?{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">{% icon "csv" 16 %} Export</a>
+    <a href="{% url 'inventory:carton_create' %}" class="btn">{% icon "plus" 18 %} Add carton</a>
+  </div>
+</div>
+
+<div class="card glass">
+  <form class="filter-bar" method="get">
+    <input name="q" class="input" placeholder="Search code, product…" value="{{ request.GET.q }}">
+    <select name="inventory" class="input select"><option value="">All inventories</option>{% for inv in inventories %}<option value="{{ inv.pk }}" {% if request.GET.inventory == inv.pk|slugify %}selected{% endif %}>{{ inv.name }}</option>{% endfor %}</select>
+    <select name="status" class="input select"><option value="">All statuses</option>{% for val, label in statuses %}<option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="btn btn-sm">{% icon "filter" 16 %} Filter</button>
+  </form>
+
+  <div class="summary-bar text-muted text-sm">Total: {{ totals.c|intcomma }} cartons · {{ totals.u|intcomma }} units</div>
+
+  <form id="bulkPrintForm" method="get" action="{% url 'inventory:labels_print' %}">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:36px; text-align:center;">
+              <input type="checkbox" id="selectAll" title="Select all on this page" style="cursor:pointer">
+            </th>
+            <th>Code</th>
+            <th>Product</th>
+            <th>Inventory</th>
+            <th class="num">Qty/ctn</th>
+            <th class="num">Count</th>
+            <th class="num">Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in page %}
+          <tr{% if c.is_low %} class="row-warning"{% endif %}>
+            <td style="text-align:center;">
+              <input type="checkbox" name="c" value="{{ c.pk }}" class="carton-checkbox" style="cursor:pointer">
+            </td>
+            <td><a href="{{ c.get_absolute_url }}"><strong>{{ c.carton_code }}</strong></a></td>
+            <td>{{ c.product.name }}</td>
+            <td>{{ c.inventory.name }}</td>
+            <td class="num">{{ c.qty_per_carton|intcomma }}</td>
+            <td class="num">{{ c.carton_count|intcomma }}</td>
+            <td class="num">{{ c.total_quantity|intcomma }}</td>
+            <td><span class="badge badge-{{ c.status|status_badge }}">{{ c.get_status_display }}</span></td>
+            <td class="action-cell">
+              <a href="{% url 'inventory:labels_print' %}?c={{ c.pk }}" target="_blank" class="icon-btn" title="Print QR Label">{% icon "qr" 16 %}</a>
+              <a href="{% url 'inventory:scan_result' c.qr_token %}" class="icon-btn" title="Stock In/Out">{% icon "scan" 16 %}</a>
+              <a href="{% url 'inventory:carton_edit' c.pk %}" class="icon-btn" title="Edit">{% icon "edit" 16 %}</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-muted">No cartons found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+  {% include "includes/pagination.html" %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectAll = document.getElementById('selectAll');
+  const checkboxes = document.querySelectorAll('.carton-checkbox');
+  const countSpan = document.getElementById('selectedCount');
+  const printBtn = document.getElementById('bulkPrintBtn');
+
+  function updateCount() {
+    const checked = document.querySelectorAll('.carton-checkbox:checked').length;
+    if (countSpan) countSpan.textContent = checked;
+    if (printBtn) {
+      printBtn.disabled = (checked === 0);
+      printBtn.style.opacity = (checked === 0) ? '0.6' : '1';
+      printBtn.style.cursor = (checked === 0) ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+      updateCount();
+    });
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+      if (selectAll && !this.checked) selectAll.checked = false;
+      updateCount();
+    });
+  });
+
+  updateCount();
+});
+</script>
+{% endblock %}

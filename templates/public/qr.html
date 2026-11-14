@@ -1,0 +1,19 @@
+{% extends "base_bare.html" %}
+{% load static mtx %}
+
+{% block title %}{{ name }} · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="public-page">
+  <div class="public-card glass-strong">
+    {% if image %}
+    <img src="{{ image.url }}" alt="{{ name }}" class="public-img">
+    {% else %}
+    <div class="public-no-img">{% icon "image" 64 %}</div>
+    {% endif %}
+    <h1 class="public-name">{{ name }}</h1>
+  </div>
+  <p class="public-footer">{{ SYSTEM_NAME }}</p>
+</div>
+{% endblock %}
+

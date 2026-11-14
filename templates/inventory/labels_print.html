@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print QR Labels · {{ SYSTEM_NAME }}</title>
+  <style>
+    {% if mode == "roll" %}
+    @page {
+      size: {{ page_w_mm }}mm {{ label_h_mm }}mm;
+      margin: 0;
+    }
+    {% else %}
+    @page {
+      size: A4;
+      margin: 8mm;
+    }
+    {% endif %}
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: #000;
+      background: #f3f5f6;
+      overflow-x: hidden;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #22333B;
+      color: #fff;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: 100%;
+    }
+    .toolbar-title {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .toolbar-badge {
+      background: rgba(198, 172, 142, 0.25);
+      color: #C6AC8E;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .tbtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 38px;
+      padding: 7px 13px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: #000;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .tbtn:hover { background: #161F24; }
+    .tbtn-secondary {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .tbtn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    .tbtn-accent {
+      background: #C6AC8E;
+      color: #161F24;
+      border-color: #C6AC8E;
+    }
+    .tbtn-accent:hover {
+      background: #d4be9f;
+    }
+    .controls-form {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12.5px;
+      color: rgba(255, 255, 255, 0.85);
+    }
+    .ctrl-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .ctrl-select, .ctrl-input {
+      min-height: 38px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: #161F24;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .ctrl-input {
+      width: 68px;
+      text-align: center;
+    }
+    .sheet-wrap {
+      max-width: {% if mode == "roll" %}fit-content{% else %}210mm{% endif %};
+      margin: 16px auto;
+      padding: 8mm;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+      overflow-x: auto;
+    }
+    .label-row {
+      display: grid;
+      grid-template-columns: repeat({{ cols }}, {{ label_w_mm }}mm);
+      gap: {% if mode == "roll" %}{% if cols > 1 %}2mm{% else %}0{% endif %}{% else %}4mm{% endif %};
+      margin-bottom: 4mm;
+    }
+    .label {
+      width: {{ label_w_mm }}mm;
+      height: {{ label_h_mm }}mm;
+      border: 1px solid #bbb;
+      border-radius: {% if mode == "roll" %}2px{% else %}4px{% endif %};
+      padding: 2mm;
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      background: #fff;
+      overflow: hidden;
+    }
+    .label img {
+      width: {{ qr_mm }}mm;
+      height: {{ qr_mm }}mm;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    .label-info {
+      flex: 1;
+      min-width: 0;
+      font-size: {% if label_h_mm < 34 %}6.8pt{% else %}8pt{% endif %};
+      line-height: 1.28;
+      overflow: hidden;
+    }
+    .label-info strong {
+      font-size: {% if label_h_mm < 34 %}7.8pt{% else %}9pt{% endif %};
+      display: block;
+      margin-bottom: 0.8mm;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .label-info span {
+      display: block;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .empty-msg {
+      text-align: center;
+      padding: 40px 20px;
+      color: #555;
+    }
+    @media (max-width: 640px) {
+      .toolbar { padding: 10px 12px; }
+      .toolbar-group { width: 100%; }
+      .tbtn { flex: 1 1 auto; }
+      .sheet-wrap { margin: 10px; padding: 12px; max-width: calc(100vw - 20px); }
+    }
+    @media print {
+      body { background: #fff; }
+      .no-print { display: none !important; }
+      .sheet-wrap {
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+      }
+      {% if mode == "roll" %}
+      .label-row {
+        margin-bottom: 0;
+        page-break-after: always;
+        break-after: page;
+      }
+      .label-row:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      .label {
+        border: none;
+      }
+      {% else %}
+      .label-row {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .label {
+        border: 1px solid #999;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      {% endif %}
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <div class="toolbar-group">
+      <button type="button" class="tbtn tbtn-secondary" id="backBtn">← Back</button>
+      <span class="toolbar-title">QR Labels</span>
+      <span class="toolbar-badge">{{ labels|length }} label{{ labels|length|pluralize }}</span>
+    </div>
+
+    {% if labels %}
+    <div class="toolbar-group">
+      <form method="get" class="controls-form" id="controlsForm">
+        {% for cid in carton_ids %}<input type="hidden" name="c" value="{{ cid }}">{% endfor %}
+        {% for pid in product_ids %}<input type="hidden" name="p" value="{{ pid }}">{% endfor %}
+
+        <label class="ctrl-item">
+          Printer:
+          <select name="mode" id="modeSelect" class="ctrl-select">
+            <option value="a4" {% if mode == "a4" %}selected{% endif %}>A4 Sheet</option>
+            <option value="roll" {% if mode == "roll" %}selected{% endif %}>Label Printer (Roll)</option>
+          </select>
+        </label>
+
+        <label class="ctrl-item">
+          Cols:
+          <select name="cols" id="colsSelect" class="ctrl-select">
+            <option value="1" {% if cols == 1 %}selected{% endif %}>1 Col</option>
+            <option value="2" {% if cols == 2 %}selected{% endif %}>2 Cols</option>
+            <option value="3" {% if cols == 3 %}selected{% endif %}>3 Cols</option>
+            <option value="4" {% if cols == 4 %}selected{% endif %}>4 Cols</option>
+          </select>
+        </label>
+
+        <label class="ctrl-item">
+          Size:
+          <select name="size" id="sizeSelect" class="ctrl-select">
+            {% for key, info in label_sizes.items %}
+            <option value="{{ key }}" {% if size_key == key %}selected{% endif %}>{{ info.2 }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="ctrl-item">
+          Copies:
+          <input type="number" name="copies" id="copiesInput" class="ctrl-input" value="{{ copies }}" min="1" max="500">
+        </label>
+        <button type="submit" class="tbtn tbtn-secondary">Apply</button>
+      </form>
+
+      <button type="button" class="tbtn tbtn-accent" id="printBtn">🖨 Print Now</button>
+      <a href="?{{ request.GET.urlencode }}&amp;format=pdf" target="_blank" class="tbtn tbtn-secondary" id="pdfViewBtn">📄 Open PDF</a>
+      <a href="?{{ request.GET.urlencode }}&amp;format=pdf&amp;download=1" class="tbtn" id="pdfDownloadBtn">⬇ PDF</a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="sheet-wrap">
+    {% if labels %}
+    {% for row in rows %}
+    <div class="label-row">
+      {% for l in row %}
+      <div class="label">
+        <img src="{{ l.qr }}" alt="QR">
+        <div class="label-info">
+          <strong>{{ l.title }}</strong>
+          <span>SKU: {{ l.sku }}</span>
+          {% if l.code %}<span>Ctn: {{ l.code }}</span>{% endif %}
+          {% if l.inventory %}<span>{{ l.inventory }}</span>{% endif %}
+          {% if l.qty %}<span>Qty/ctn: {{ l.qty }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-msg">
+      <p>No cartons or products were selected for label printing.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    (function () {
+      var backBtn = document.getElementById('backBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', function () {
+          if (window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.close();
+            setTimeout(function () { window.location.href = '/'; }, 150);
+          }
+        });
+      }
+
+      var form = document.getElementById('controlsForm');
+      var modeSelect = document.getElementById('modeSelect');
+      var colsSelect = document.getElementById('colsSelect');
+      var sizeSelect = document.getElementById('sizeSelect');
+
+      if (modeSelect && form) {
+        modeSelect.addEventListener('change', function () {
+          // Default to 1 column when switching to Label Printer (Roll), 3 columns for A4
+          if (colsSelect) {
+            colsSelect.value = (modeSelect.value === 'roll') ? '1' : '3';
+          }
+          form.submit();
+        });
+      }
+      if (colsSelect && form) {
+        colsSelect.addEventListener('change', function () { form.submit(); });
+      }
+      if (sizeSelect && form) {
+        sizeSelect.addEventListener('change', function () { form.submit(); });
+      }
+
+      var printBtn = document.getElementById('printBtn');
+      if (printBtn) {
+        printBtn.addEventListener('click', function () {
+          var imgs = Array.prototype.slice.call(document.querySelectorAll('.label img'));
+          var pending = imgs.filter(function (img) { return !img.complete; });
+          function doPrint() {
+            if (typeof window.print === 'function') {
+              window.print();
+            } else {
+              var pdfLink = document.getElementById('pdfViewBtn');
+              if (pdfLink) window.location.href = pdfLink.href;
+            }
+          }
+          if (pending.length === 0) {
+            doPrint();
+          } else {
+            var left = pending.length;
+            pending.forEach(function (img) {
+              img.addEventListener('load', function () { if (--left === 0) doPrint(); });
+              img.addEventListener('error', function () { if (--left === 0) doPrint(); });
+            });
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

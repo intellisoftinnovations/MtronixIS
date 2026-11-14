@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load mtx %}
+
+{% block page_title %}Scan: Choose carton{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass">
+    <h2>Multiple cartons match "{{ code }}"</h2>
+    <p class="text-muted">Select which carton you mean:</p>
+    {% for c in cartons %}
+    <a href="{% url 'inventory:scan_result' c.qr_token %}" class="choose-item glass">
+      <strong>{{ c.carton_code }}</strong>
+      <span>{{ c.product.name }} · {{ c.inventory.name }}</span>
+      <span class="text-muted">{{ c.carton_count }} cartons</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+

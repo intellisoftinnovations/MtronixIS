@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load mtx %}
+
+{% block page_title %}Profile{% endblock %}
+{% block title %}Profile · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass">
+    <h2>{% icon "user" %} Profile</h2>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="field">
+        <label>Name</label>
+        {{ form.name }}
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input class="input" value="{{ request.user.email }}" disabled>
+      </div>
+      <div class="field">
+        <label>Role</label>
+        <input class="input" value="{{ request.user.get_role_display }}" disabled>
+      </div>
+      <button type="submit" class="btn">Save</button>
+    </form>
+  </div>
+
+  <div class="card glass">
+    <h2>{% icon "lock" %} Security</h2>
+    <div class="security-row">
+      <div>
+        <strong>Password</strong>
+        <p class="text-muted">{% if request.user.password_set_at %}Last changed {{ request.user.password_set_at|bdtime_short }}{% else %}Not set{% endif %}</p>
+      </div>
+      <a href="{% url 'accounts:change_password' %}" class="btn btn-sm btn-secondary">Change password</a>
+    </div>
+    <div class="security-row">
+      <div>
+        <strong>Two-factor authentication</strong>
+        <p class="text-muted">{% if request.user.totp_enabled %}Enabled{% else %}Disabled{% endif %}</p>
+      </div>
+      {% if request.user.totp_enabled %}
+        {% if not request.user.is_admin %}
+        <form method="post" action="{% url 'accounts:2fa_disable' %}">{% csrf_token %}<button class="btn btn-sm btn-danger" type="submit">Disable</button></form>
+        {% endif %}
+      {% else %}
+        <a href="{% url 'accounts:2fa_setup' %}" class="btn btn-sm btn-secondary">Set up</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card glass">
+    <h2>{% icon "clock" %} Login history</h2>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Date</th><th>Device</th><th>IP</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for h in history %}
+          <tr>
+            <td>{{ h.created_at|bdtime_short }}</td>
+            <td>{{ h.device }}</td>
+            <td>{{ h.ip }}</td>
+            <td>{% if h.success %}<span class="badge badge-success">OK</span>{% else %}<span class="badge badge-danger">Failed</span>{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" class="text-muted">No login history yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

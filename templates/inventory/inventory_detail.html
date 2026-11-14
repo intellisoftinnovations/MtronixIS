@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}{{ inventory.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{% icon "warehouse" %} {{ inventory.name }} <span class="text-muted">({{ inventory.code }})</span>{% if inventory.is_archived %} <span class="badge badge-muted">Archived</span>{% endif %}</h2>
+  {% if can_edit %}<a href="{% url 'inventory:inventory_edit' inventory.pk %}" class="btn btn-sm btn-secondary">{% icon "edit" 16 %} Edit</a>{% endif %}
+</div>
+
+<div class="stats-row">
+  <div class="stat-card glass"><div class="stat-body"><span class="stat-num">{{ totals.n|intcomma }}</span><span class="stat-label">Carton lines</span></div></div>
+  <div class="stat-card glass"><div class="stat-body"><span class="stat-num">{{ totals.c|intcomma }}</span><span class="stat-label">Total cartons</span></div></div>
+  <div class="stat-card glass"><div class="stat-body"><span class="stat-num">{{ totals.u|intcomma }}</span><span class="stat-label">Total units</span></div></div>
+</div>
+
+<div class="card glass">
+  <form class="filter-bar" method="get"><input name="q" class="input" placeholder="Search…" value="{{ request.GET.q }}"><button class="btn btn-sm">{% icon "search" 16 %}</button></form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Carton</th><th>Product</th><th class="num">Qty/ctn</th><th class="num">Count</th><th class="num">Total</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for c in page %}
+        <tr{% if c.is_low %} class="row-warning"{% endif %}>
+          <td><a href="{{ c.get_absolute_url }}">{{ c.carton_code }}</a></td>
+          <td>{{ c.product.name }}</td>
+          <td class="num">{{ c.qty_per_carton|intcomma }}</td>
+          <td class="num">{{ c.carton_count|intcomma }}</td>
+          <td class="num">{{ c.total_quantity|intcomma }}</td>
+          <td><span class="badge badge-{{ c.status|status_badge }}">{{ c.get_status_display }}</span></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-muted">No cartons in this inventory.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "includes/pagination.html" %}
+</div>
+
+{% if recent %}
+<div class="card glass">
+  <h3>Recent movements</h3>
+  {% for mv in recent %}
+  <div class="activity-item">
+    <span class="badge badge-{% if mv.is_in %}success{% else %}danger{% endif %}">{{ mv.get_type_display }}</span>
+    <span><a href="{{ mv.get_absolute_url }}">{{ mv.receipt_no }}</a> · {{ mv.product.name }} · {{ mv.carton.carton_code }}</span>
+    <span class="text-muted text-sm">{{ mv.created_at|bdtime_short }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
+

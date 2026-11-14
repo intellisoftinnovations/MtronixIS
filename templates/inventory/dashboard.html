@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block title %}Dashboard · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+{# ---- Stat cards ---- #}
+<div class="stats-row">
+  <div class="stat-card glass">
+    <div class="stat-icon">{% icon "warehouse" 22 %}</div>
+    <div class="stat-body"><span class="stat-num">{{ total_inventories }}</span><span class="stat-label">Inventories</span></div>
+  </div>
+  <div class="stat-card glass">
+    <div class="stat-icon">{% icon "package" 22 %}</div>
+    <div class="stat-body"><span class="stat-num">{{ total_products|intcomma }}</span><span class="stat-label">Products</span></div>
+  </div>
+  <div class="stat-card glass">
+    <div class="stat-icon">{% icon "box" 22 %}</div>
+    <div class="stat-body"><span class="stat-num">{{ total_cartons|intcomma }}</span><span class="stat-label">Cartons in stock</span></div>
+  </div>
+  <div class="stat-card glass">
+    <div class="stat-icon stat-in">{% icon "arrow-down" 22 %}</div>
+    <div class="stat-body"><span class="stat-num">{{ periods.today.in_cartons|intcomma }}</span><span class="stat-label">In today</span></div>
+  </div>
+  <div class="stat-card glass">
+    <div class="stat-icon stat-out">{% icon "arrow-up" 22 %}</div>
+    <div class="stat-body"><span class="stat-num">{{ periods.today.out_cartons|intcomma }}</span><span class="stat-label">Out today</span></div>
+  </div>
+</div>
+
+{# ---- Chart & quick actions ---- #}
+<div class="dash-grid">
+  <div class="card glass chart-card">
+    <div class="card-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <h3 style="margin:0;">Stock movement</h3>
+        <div class="range-toggle" style="display:inline-flex; background:rgba(0,0,0,0.35); border-radius:var(--radius-sm); padding:2px; border:1px solid var(--glass-border);">
+          <a href="?range=7" class="btn-toggle {% if chart.days == 7 %}active{% endif %}" style="padding:3px 10px; font-size:12px; font-weight:600; text-decoration:none; border-radius:6px; color:{% if chart.days == 7 %}#000; background:var(--accent){% else %}var(--text-muted); background:transparent{% endif %}; transition:all .15s ease;">7 Days</a>
+          <a href="?range=30" class="btn-toggle {% if chart.days == 30 %}active{% endif %}" style="padding:3px 10px; font-size:12px; font-weight:600; text-decoration:none; border-radius:6px; color:{% if chart.days == 30 %}#000; background:var(--accent){% else %}var(--text-muted); background:transparent{% endif %}; transition:all .15s ease;">30 Days</a>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <span class="legend-dot legend-in"></span> In {{ chart.total_in|intcomma }}
+        <span class="legend-dot legend-out"></span> Out {{ chart.total_out|intcomma }}
+      </div>
+    </div>
+    <svg class="chart" viewBox="0 0 {{ chart.W }} {{ chart.H }}" preserveAspectRatio="none">
+      {# axis lines #}
+      {% for t in chart.ticks %}
+      <line x1="{{ chart.PL }}" y1="{{ t.y }}" x2="{{ chart.plot_right }}" y2="{{ t.y }}" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+      <text x="{{ chart.PL|add:'-6' }}" y="{{ t.y|add:'3' }}" fill="rgba(255,255,255,.4)" font-size="9" text-anchor="end">{{ t.label }}</text>
+      {% endfor %}
+      {# bars #}
+      {% for b in chart.bars %}
+      {% if b.h_in %}<rect x="{{ b.x_in }}" y="{{ b.y_in }}" width="{{ b.w }}" height="{{ b.h_in }}" rx="2" fill="#4ADE80" opacity=".85"><title>{{ b.date|date:"d M" }}: In {{ b.in }}</title></rect>{% endif %}
+      {% if b.h_out %}<rect x="{{ b.x_out }}" y="{{ b.y_out }}" width="{{ b.w }}" height="{{ b.h_out }}" rx="2" fill="#F87171" opacity=".85"><title>{{ b.date|date:"d M" }}: Out {{ b.out }}</title></rect>{% endif %}
+      {% if b.label %}<text x="{{ b.label_x }}" y="{{ chart.label_y }}" fill="rgba(255,255,255,.45)" font-size="9" text-anchor="middle">{{ b.label }}</text>{% endif %}
+      {% endfor %}
+    </svg>
+  </div>
+
+  <div class="card glass">
+    <h3>Quick actions</h3>
+    <div class="quick-actions">
+      <a href="{% url 'inventory:scan' %}" class="btn">{% icon "scan" 18 %} Scan QR</a>
+      <a href="{% url 'inventory:carton_create' %}" class="btn btn-secondary">{% icon "plus" 18 %} Add carton</a>
+      <a href="{% url 'inventory:product_create' %}" class="btn btn-secondary">{% icon "plus" 18 %} Add product</a>
+    </div>
+  </div>
+</div>
+
+{# ---- Inventory table ---- #}
+<div class="card glass">
+  <h3>Inventories</h3>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Name</th><th class="num">Carton lines</th><th class="num">Cartons</th><th class="num">Total qty</th><th class="num">Low stock</th></tr></thead>
+      <tbody>
+        {% for inv in inventory_rows %}
+        <tr>
+          <td><a href="{{ inv.get_absolute_url }}">{{ inv.name }}</a> <span class="text-faint">({{ inv.code }})</span></td>
+          <td class="num">{{ inv.carton_lines|intcomma }}</td>
+          <td class="num">{{ inv.total_cartons|intcomma }}</td>
+          <td class="num">{{ inv.total_units|intcomma }}</td>
+          <td class="num">{% if inv.low_count %}<span class="badge badge-warning">{{ inv.low_count }}</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-muted">No inventories yet. <a href="{% url 'inventory:inventory_create' %}">Create one →</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---- Recent activity & low stock ---- #}
+<div class="dash-grid">
+  <div class="card glass">
+    <h3>Recent activity</h3>
+    {% for mv in recent %}
+    <div class="activity-item">
+      <span class="badge badge-{% if mv.is_in %}success{% else %}danger{% endif %}">{{ mv.get_type_display }}</span>
+      <span><a href="{{ mv.get_absolute_url }}">{{ mv.receipt_no }}</a> · {{ mv.product.name }} · {{ mv.cartons_moved }} cartons</span>
+      <span class="text-muted text-sm">{{ mv.created_at|bdtime_short }}</span>
+    </div>
+    {% empty %}
+    <p class="text-muted">No movements yet.</p>
+    {% endfor %}
+  </div>
+
+  {% if low_stock %}
+  <div class="card glass">
+    <h3>{% icon "alert" 18 %} Low stock alerts <span class="badge badge-warning">{{ low_stock_total }}</span></h3>
+    {% for c in low_stock %}
+    <div class="activity-item">
+      <span class="badge badge-warning">{{ c.carton_count }}</span>
+      <span><a href="{{ c.get_absolute_url }}">{{ c.carton_code }}</a> · {{ c.product.name }} · {{ c.inventory.name }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+

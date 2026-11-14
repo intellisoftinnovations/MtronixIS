@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}Products{% endblock %}
+{% block title %}Products · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{% icon "package" %} Products <span class="badge badge-muted">{{ total }}</span></h2>
+  <div class="page-actions">
+    <button type="submit" form="bulkProductPrintForm" id="bulkPrintBtn" class="btn btn-secondary btn-sm" disabled style="opacity:0.6">
+      {% icon "qr" 16 %}<span>Print (<span id="selectedCount">0</span>)</span>
+    </button>
+    <a href="{% url 'inventory:product_export' %}?{{ request.GET.urlencode }}" class="btn btn-secondary btn-sm">{% icon "csv" 16 %} Export</a>
+    <a href="{% url 'inventory:product_create' %}" class="btn">{% icon "plus" 18 %} Add product</a>
+  </div>
+</div>
+
+<div class="card glass">
+  <form class="filter-bar" method="get">
+    <input name="q" class="input" placeholder="Search name or SKU…" value="{{ request.GET.q }}">
+    <select name="inventory" class="input select">
+      <option value="">All inventories</option>
+      {% for inv in inventories %}<option value="{{ inv.pk }}" {% if request.GET.inventory == inv.pk|slugify %}selected{% endif %}>{{ inv.name }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-sm">{% icon "search" 16 %} Filter</button>
+    {% if request.GET.q or request.GET.inventory %}<a href="{% url 'inventory:product_list' %}" class="btn btn-sm btn-secondary">Clear</a>{% endif %}
+  </form>
+
+  <form id="bulkProductPrintForm" method="get" action="{% url 'inventory:labels_print' %}">
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:36px; text-align:center;">
+              <input type="checkbox" id="selectAll" title="Select all on this page" style="cursor:pointer">
+            </th>
+            <th style="width:48px;"></th>
+            <th>Name</th>
+            <th>SKU</th>
+            <th class="num">Cartons</th>
+            <th class="num">Total qty</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in page %}
+          <tr>
+            <td style="text-align:center;">
+              <input type="checkbox" name="p" value="{{ p.pk }}" class="product-checkbox" style="cursor:pointer">
+            </td>
+            <td class="thumb-cell">{% if p.image %}<img src="{{ p.image.url }}" alt="" class="thumb">{% else %}<span class="thumb-empty">{% icon "image" 16 %}</span>{% endif %}</td>
+            <td><a href="{{ p.get_absolute_url }}"><strong>{{ p.name }}</strong></a></td>
+            <td>{{ p.sku }}</td>
+            <td class="num">{{ p.total_cartons|intcomma }}</td>
+            <td class="num">{{ p.total_units|intcomma }}</td>
+            <td class="action-cell">
+              <a href="{% url 'inventory:labels_print' %}?p={{ p.pk }}" target="_blank" class="icon-btn" title="Print QR Label">{% icon "qr" 16 %}</a>
+              <a href="{% url 'inventory:product_edit' p.pk %}" class="icon-btn" title="Edit">{% icon "edit" 16 %}</a>
+              <a href="{{ p.get_absolute_url }}" class="icon-btn" title="View">{% icon "eye" 16 %}</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-muted">No products found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+  {% include "includes/pagination.html" %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectAll = document.getElementById('selectAll');
+  const checkboxes = document.querySelectorAll('.product-checkbox');
+  const countSpan = document.getElementById('selectedCount');
+  const printBtn = document.getElementById('bulkPrintBtn');
+
+  function updateCount() {
+    const checked = document.querySelectorAll('.product-checkbox:checked').length;
+    if (countSpan) countSpan.textContent = checked;
+    if (printBtn) {
+      printBtn.disabled = (checked === 0);
+      printBtn.style.opacity = (checked === 0) ? '0.6' : '1';
+      printBtn.style.cursor = (checked === 0) ? 'not-allowed' : 'pointer';
+    }
+  }
+
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+      updateCount();
+    });
+  }
+
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+      if (selectAll && !this.checked) selectAll.checked = false;
+      updateCount();
+    });
+  });
+
+  updateCount();
+});
+</script>
+{% endblock %}

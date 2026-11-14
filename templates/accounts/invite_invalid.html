@@ -1,0 +1,16 @@
+{% extends "base_bare.html" %}
+{% load mtx %}
+
+{% block title %}Invalid Invite · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card glass-strong">
+    <div style="color:var(--danger); margin-bottom:14px">{% icon "alert" 48 %}</div>
+    <h1>Invite link invalid or expired</h1>
+    <p class="text-muted" style="margin-bottom:20px">This invite link has already been used or has expired. Please contact your system administrator to request a new invite link.</p>
+    <a href="{% url 'accounts:login' %}" class="btn btn-block">Go to Sign in</a>
+  </div>
+</div>
+{% endblock %}
+

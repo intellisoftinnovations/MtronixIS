@@ -1,0 +1,24 @@
+{% extends "base_bare.html" %}
+{% load static mtx %}
+
+{% block title %}Two-factor authentication · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="auth-page">
+  <div class="auth-card glass-strong">
+    <div class="auth-logo">{% icon "shield" 36 %}</div>
+    <h1>Two-factor authentication</h1>
+    <p class="text-muted">Enter the 6-digit code from your authenticator app.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="field">
+        {{ form.code }}
+        {% if form.code.errors %}<p class="field-error">{{ form.code.errors.0 }}</p>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-block">Verify</button>
+    </form>
+    <a href="{% url 'accounts:login' %}" class="auth-link">← Back to sign in</a>
+  </div>
+</div>
+{% endblock %}
+

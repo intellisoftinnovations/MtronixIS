@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load mtx %}
+
+{% block page_title %}Invite Created{% endblock %}
+{% block title %}Invite Link · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass" style="text-align:center">
+    <div style="color:var(--success); margin-bottom:12px">{% icon "check" 48 %}</div>
+    <h2>User Created: {{ user.name }}</h2>
+    <p class="text-muted">{{ user.email }} · {{ user.get_role_display }}</p>
+
+    <div style="background:rgba(255,255,255,0.06); padding:16px; border-radius:var(--radius-md); margin:20px 0; border:1px solid var(--glass-border); text-align:left">
+      <label style="font-size:12.5px; color:var(--text-muted); display:block; margin-bottom:6px">One-Time Password Setup Link:</label>
+      <input type="text" id="inviteUrl" value="{{ invite_url }}" class="input" readonly style="user-select:all; font-family:monospace; font-size:13px; margin-bottom:12px">
+      <button type="button" class="btn btn-sm btn-block" onclick="copyInviteLink()" id="copyBtn">
+        {% icon "lock" 16 %} Copy Invite Link
+      </button>
+    </div>
+
+    <p class="text-muted text-sm">Send this link to the user. When opened, they will be prompted to choose their password.</p>
+
+    <div style="margin-top:20px; display:flex; gap:10px; justify-content:center">
+      <a href="{% url 'accounts:user_set_password' user.pk %}" class="btn btn-sm btn-secondary">Set password manually</a>
+      <a href="{% url 'accounts:user_list' %}" class="btn btn-sm">Done</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyInviteLink() {
+  const input = document.getElementById('inviteUrl');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = "Copied to Clipboard!";
+    setTimeout(() => { btn.textContent = "Copy Invite Link"; }, 2500);
+  });
+}
+</script>
+{% endblock %}
+

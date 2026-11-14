@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% load static mtx %}
+
+{% block page_title %}Scan QR{% endblock %}
+{% block title %}Scan QR · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<script src="{% static 'vendor/html5-qrcode.min.js' %}"></script>
+
+<div class="scan-page">
+  <div class="card glass scan-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px">
+      <h2 style="margin-bottom:0">{% icon "scan" %} Scan QR Code</h2>
+      <button type="button" id="snapPhotoTopBtn" class="btn btn-sm btn-secondary">
+        {% icon "camera" 16 %} Snap / Upload
+      </button>
+    </div>
+
+    {# Insecure context warning (when accessing via HTTP on mobile LAN) #}
+    <div id="insecureNotice" class="toast toast-warning" style="display:none; text-align:left; font-size:13px; line-height:1.4">
+      <div>
+        <strong>Mobile Live Video Note:</strong> Browsers require HTTPS for live video on local networks.
+        Tap <strong>"📷 Snap / Upload Photo"</strong> below to take a photo of the QR code with your camera!
+      </div>
+    </div>
+
+    {# Camera selector dropdown (when multiple cameras detected) #}
+    <div id="cameraSelectWrap" style="display:none; margin-bottom:12px">
+      <select id="cameraSelect" class="input select" style="padding:8px 12px; font-size:13.5px"></select>
+    </div>
+
+    {# Scanner Viewport with Placeholder #}
+    <div class="scan-viewport-container">
+      <div id="reader" class="scan-viewport"></div>
+      
+      {# Idle / Loading Overlay #}
+      <div id="scannerPlaceholder" class="scanner-placeholder">
+        <div class="scanner-icon">{% icon "camera" 44 %}</div>
+        <p id="placeholderText" style="color:var(--text-muted); font-size:14px; margin:10px 0 16px">Point camera at QR code or snap a photo</p>
+        <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
+          <button type="button" id="startCamBtn" class="btn btn-sm">
+            {% icon "camera" 16 %} Start Live Camera
+          </button>
+          <button type="button" id="snapPhotoBtn" class="btn btn-sm btn-secondary">
+            {% icon "image" 16 %} Snap / Upload Photo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {# Hidden native file / camera capture input #}
+    <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display:none">
+
+    {# Live scanner controls #}
+    <div id="liveControls" style="display:none; margin-top:12px; gap:8px; justify-content:center; flex-wrap:wrap">
+      <button type="button" id="stopCamBtn" class="btn btn-sm btn-danger">
+        {% icon "power" 16 %} Stop Camera
+      </button>
+      <button type="button" id="switchCamBtn" class="btn btn-sm btn-secondary">
+        {% icon "refresh" 16 %} Switch Camera
+      </button>
+      <button type="button" id="snapPhotoBtnLive" class="btn btn-sm btn-secondary">
+        {% icon "camera" 16 %} Snap Photo
+      </button>
+    </div>
+
+    <p class="text-muted text-sm" id="scanStatus" style="margin-top:14px">Ready to scan product or carton QR code.</p>
+
+    {# Manual code entry fallback #}
+    <div class="scan-fallback">
+      <p class="text-muted" style="margin-bottom:8px">Or enter code / SKU manually:</p>
+      <form method="get" action="{% url 'inventory:scan_lookup' %}" class="scan-manual">
+        <input name="code" class="input" placeholder="QR token, carton code, or SKU" required autocomplete="off">
+        <button class="btn">{% icon "search" 18 %} Look up</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+.scan-viewport-container {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  margin: 12px auto;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(10, 15, 18, 0.95);
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 28px rgba(198, 172, 142, 0.25);
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scan-viewport {
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+}
+.scan-viewport video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: calc(var(--radius-lg) - 2px);
+}
+.scanner-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: rgba(18, 25, 30, 0.96);
+  z-index: 2;
+  transition: opacity .2s ease;
+}
+.scanner-icon {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  background: rgba(198, 172, 142, 0.12);
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+</style>
+
+<script>
+let html5QrCode = null;
+let currentCameraId = null;
+let availableCameras = [];
+let isScanningLive = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+  const status = document.getElementById('scanStatus');
+  const fileInput = document.getElementById('qrFileInput');
+  const startCamBtn = document.getElementById('startCamBtn');
+  const snapPhotoBtn = document.getElementById('snapPhotoBtn');
+  const snapPhotoTopBtn = document.getElementById('snapPhotoTopBtn');
+  const snapPhotoBtnLive = document.getElementById('snapPhotoBtnLive');
+  const stopCamBtn = document.getElementById('stopCamBtn');
+  const switchCamBtn = document.getElementById('switchCamBtn');
+  const camSelect = document.getElementById('cameraSelect');
+  const insecureNotice = document.getElementById('insecureNotice');
+
+  // Trigger file / camera photo capture safely stopping live stream first
+  function triggerPhotoCapture() {
+    if (html5QrCode && isScanningLive) {
+      stopScanner();
+    }
+    fileInput.click();
+  }
+
+  if (snapPhotoBtn) snapPhotoBtn.addEventListener('click', triggerPhotoCapture);
+  if (snapPhotoTopBtn) snapPhotoTopBtn.addEventListener('click', triggerPhotoCapture);
+  if (snapPhotoBtnLive) snapPhotoBtnLive.addEventListener('click', triggerPhotoCapture);
+
+  // Trigger live camera
+  if (startCamBtn) startCamBtn.addEventListener('click', startScanner);
+  if (stopCamBtn) stopCamBtn.addEventListener('click', stopScanner);
+  if (switchCamBtn) switchCamBtn.addEventListener('click', switchCamera);
+
+  // Detect insecure origin (e.g. http://192.168.x.x on mobile phone)
+  const isSecure = window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!isSecure) {
+    if (insecureNotice) insecureNotice.style.display = 'flex';
+    status.textContent = 'Live video requires HTTPS on mobile networks. Tap "Snap / Upload Photo" to scan with your camera!';
+  } else {
+    // Auto-start live camera on page load when in a secure context
+    startScanner();
+  }
+
+  // Handle Photo / File capture scan (works 100% on all mobile devices and desktop)
+  fileInput.addEventListener('change', function(e) {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    status.textContent = 'Scanning captured image...';
+
+    if (typeof Html5Qrcode === 'undefined') {
+      status.innerHTML = '<span class="text-danger">Scanner library not loaded. Check connection.</span>';
+      return;
+    }
+
+    if (html5QrCode && isScanningLive) {
+      stopScanner();
+    }
+
+    const scanner = html5QrCode || new Html5Qrcode('reader');
+    scanner.scanFile(file, true)
+      .then(qrCodeText => {
+        onScanSuccess(qrCodeText);
+      })
+      .catch(err => {
+        status.innerHTML = '<span class="text-warning">No QR code detected in this photo.</span> Try a closer picture with clear lighting.';
+        fileInput.value = '';
+      });
+  });
+
+  // Camera dropdown change
+  if (camSelect) {
+    camSelect.addEventListener('change', function() {
+      currentCameraId = this.value;
+      if (isScanningLive) {
+        html5QrCode.stop().then(() => {
+          startScanner();
+        });
+      }
+    });
+  }
+});
+
+function onScanSuccess(text) {
+  const status = document.getElementById('scanStatus');
+  status.textContent = 'QR Code found! Redirecting...';
+  if (html5QrCode && isScanningLive) {
+    html5QrCode.stop().catch(() => {});
+  }
+  const m = text.match(/\/q\/([A-Za-z0-9_\-]{10,64})/);
+  const code = m ? m[1] : text;
+  window.location.href = "{% url 'inventory:scan_lookup' %}?code=" + encodeURIComponent(code);
+}
+
+function startScanner() {
+  const placeholder = document.getElementById('scannerPlaceholder');
+  const liveControls = document.getElementById('liveControls');
+  const status = document.getElementById('scanStatus');
+  const startBtn = document.getElementById('startCamBtn');
+
+  if (typeof Html5Qrcode === 'undefined') {
+    status.innerHTML = '<span class="text-danger">Scanner library not ready. Please refresh the page.</span>';
+    return;
+  }
+
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode('reader');
+  }
+
+  const config = {
+    fps: 15,
+    qrbox: { width: 250, height: 250 },
+    aspectRatio: 1.0
+  };
+
+  status.textContent = 'Requesting camera access...';
+  if (startBtn) startBtn.disabled = true;
+
+  // Enumerate cameras first to pick proper device
+  Html5Qrcode.getCameras().then(cameras => {
+    if (cameras && cameras.length) {
+      availableCameras = cameras;
+      const select = document.getElementById('cameraSelect');
+      const selectWrap = document.getElementById('cameraSelectWrap');
+      if (select) {
+        select.innerHTML = '';
+        cameras.forEach((cam, i) => {
+          const opt = document.createElement('option');
+          opt.value = cam.id;
+          opt.text = cam.label || `Camera ${i + 1}`;
+          select.appendChild(opt);
+        });
+        if (!currentCameraId) {
+          let preferred = cameras.find(c => /back|rear|environment/i.test(c.label));
+          if (!preferred) preferred = cameras[cameras.length - 1];
+          currentCameraId = preferred ? preferred.id : cameras[0].id;
+        }
+        select.value = currentCameraId;
+        if (cameras.length > 1 && selectWrap) {
+          selectWrap.style.display = 'block';
+        }
+      }
+      return html5QrCode.start(currentCameraId, config, onScanSuccess);
+    } else {
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const camConfig = isMobile ? { facingMode: "environment" } : { facingMode: "user" };
+      return html5QrCode.start(camConfig, config, onScanSuccess);
+    }
+  }).then(() => {
+    isScanningLive = true;
+    placeholder.style.display = 'none';
+    liveControls.style.display = 'flex';
+    status.textContent = 'Aim camera at a product or carton QR code.';
+    if (startBtn) startBtn.disabled = false;
+  }).catch(err => {
+    console.warn("Direct camera start attempt failed, trying fallback...", err);
+    // Fallback: try user facing camera
+    return html5QrCode.start({ facingMode: "user" }, config, onScanSuccess).then(() => {
+      isScanningLive = true;
+      placeholder.style.display = 'none';
+      liveControls.style.display = 'flex';
+      status.textContent = 'Aim camera at a product or carton QR code.';
+      if (startBtn) startBtn.disabled = false;
+    });
+  }).catch(err => {
+    console.error("Camera start failed completely:", err);
+    placeholder.style.display = 'flex';
+    liveControls.style.display = 'none';
+    if (startBtn) startBtn.disabled = false;
+    const msg = err.name || err.message || String(err);
+    status.innerHTML = '<span class="text-danger">Camera error: ' + msg + '</span><br>Click <strong>"Snap / Upload Photo"</strong> to scan an image or photo!';
+  });
+}
+
+function stopScanner() {
+  if (html5QrCode && isScanningLive) {
+    html5QrCode.stop().then(() => {
+      isScanningLive = false;
+      document.getElementById('scannerPlaceholder').style.display = 'flex';
+      document.getElementById('liveControls').style.display = 'none';
+      document.getElementById('scanStatus').textContent = 'Camera stopped.';
+    }).catch(err => console.error("Error stopping scanner:", err));
+  }
+}
+
+function switchCamera() {
+  if (availableCameras.length < 2) return;
+  const idx = availableCameras.findIndex(c => c.id === currentCameraId);
+  const nextIdx = (idx + 1) % availableCameras.length;
+  currentCameraId = availableCameras[nextIdx].id;
+  const select = document.getElementById('cameraSelect');
+  if (select) select.value = currentCameraId;
+
+  if (isScanningLive) {
+    html5QrCode.stop().then(() => {
+      startScanner();
+    });
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,239 @@
+{% extends "base_bare.html" %}
+{% load static mtx %}
+
+{% block extra_head %}
+{{ block.super }}
+{% endblock %}
+
+{% block body %}
+<div class="layout">
+  {# ---- Desktop sidebar ---- #}
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+  <aside class="sidebar glass" id="sidebar">
+    <div class="sidebar-head">
+      <a href="{% url 'inventory:dashboard' %}" class="logo">{% icon "box" 26 %}<span>{{ SYSTEM_NAME }}</span></a>
+    </div>
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <a href="{% url 'inventory:dashboard' %}" class="nav-item {% nav_active '/' %}" title="Dashboard">{% icon "dashboard" %}<span>Dashboard</span></a>
+      <a href="{% url 'inventory:product_list' %}" class="nav-item {% nav_active '/products' %}" title="Products">{% icon "package" %}<span>Products</span></a>
+      <a href="{% url 'inventory:carton_list' %}" class="nav-item {% nav_active '/cartons' %}" title="Cartons">{% icon "box" %}<span>Cartons</span></a>
+      <a href="{% url 'inventory:scan' %}" class="nav-item {% nav_active '/scan' %}" title="Scan QR">{% icon "scan" %}<span>Scan QR</span></a>
+      <a href="{% url 'inventory:inventory_list' %}" class="nav-item {% nav_active '/inventories' %}" title="Inventories">{% icon "warehouse" %}<span>Inventories</span></a>
+      <a href="{% url 'audit:log_list' %}" class="nav-item {% nav_active '/logs' %}" title="Activity Log">{% icon "log" %}<span>Activity Log</span></a>
+      {% if request.user.is_admin %}
+      <a href="{% url 'accounts:user_list' %}" class="nav-item {% nav_active '/users' %}" title="Users">{% icon "users" %}<span>Users</span></a>
+      {% endif %}
+    </nav>
+    <div class="sidebar-foot">
+      <a href="{% url 'accounts:profile' %}" class="user-chip glass-strong">
+        <span class="avatar">{{ request.user.initials }}</span>
+        <span class="user-info">
+          <span class="user-name">{{ request.user.name }}</span>
+          <span class="user-role">{{ request.user.get_role_display }}</span>
+        </span>
+      </a>
+    </div>
+  </aside>
+
+  {# ---- Main content ---- #}
+  <div class="main-wrap">
+    <header class="topbar glass">
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Toggle navigation menu" title="Toggle menu">{% icon "menu" 20 %}</button>
+      <h1 class="topbar-title">{% block page_title %}Dashboard{% endblock %}</h1>
+      <div class="topbar-actions">
+        <a href="{% url 'inventory:scan' %}" class="btn btn-sm" title="Scan QR">{% icon "scan" 18 %}<span class="hide-mobile"> Scan</span></a>
+        <a href="{% url 'accounts:profile' %}" class="icon-btn" title="Profile">{% icon "user" %}</a>
+        <a href="{% url 'accounts:logout' %}" class="icon-btn" title="Sign out">{% icon "logout" %}</a>
+      </div>
+    </header>
+
+    {# ---- Messages ---- #}
+    {% if messages %}
+    <div class="messages" role="alert">
+      {% for msg in messages %}
+      <div class="toast toast-{{ msg.tags }}">
+        <span>{{ msg }}</span>
+        <button class="toast-close" onclick="this.parentElement.remove()" aria-label="Dismiss">&times;</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {# ---- Mobile bottom nav ---- #}
+  <nav class="mobile-nav glass" aria-label="Mobile navigation">
+    <a href="{% url 'inventory:dashboard' %}" class="mnav-item {% nav_active '/' %}">{% icon "dashboard" 20 %}<span>Home</span></a>
+    <a href="{% url 'inventory:carton_list' %}" class="mnav-item {% nav_active '/cartons' %}">{% icon "box" 20 %}<span>Cartons</span></a>
+    <a href="{% url 'inventory:scan' %}" class="mnav-scan" aria-label="Scan QR">{% icon "scan" 26 %}</a>
+    <a href="{% url 'audit:log_list' %}" class="mnav-item {% nav_active '/logs' %}">{% icon "log" 20 %}<span>Log</span></a>
+    <button type="button" class="mnav-item {% nav_active '/account' '/products' '/inventories' '/users' %}" id="moreBtn" aria-haspopup="dialog" aria-controls="moreSheet">{% icon "more" 20 %}<span>More</span></button>
+  </nav>
+
+  {# ---- Mobile "More" bottom sheet ---- #}
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+  <div class="bottom-sheet" id="moreSheet" role="dialog" aria-modal="true" aria-label="More menu">
+    <div class="sheet-handle"></div>
+    <div class="sheet-user">
+      <span class="avatar">{{ request.user.initials }}</span>
+      <span class="user-info"><span class="user-name">{{ request.user.name }}</span><span class="user-role">{{ request.user.get_role_display }}</span></span>
+    </div>
+    <div class="sheet-grid">
+      <a href="{% url 'inventory:product_list' %}" class="sheet-item">{% icon "package" 22 %}<span>Products</span></a>
+      <a href="{% url 'inventory:inventory_list' %}" class="sheet-item">{% icon "warehouse" 22 %}<span>Inventories</span></a>
+      {% if request.user.is_admin %}<a href="{% url 'accounts:user_list' %}" class="sheet-item">{% icon "users" 22 %}<span>Users</span></a>{% endif %}
+      <a href="{% url 'accounts:profile' %}" class="sheet-item">{% icon "user" 22 %}<span>Profile</span></a>
+      <a href="{% url 'accounts:change_password' %}" class="sheet-item">{% icon "edit" 22 %}<span>Password</span></a>
+      <a href="{% url 'inventory:scan' %}" class="sheet-item">{% icon "scan" 22 %}<span>Scan QR</span></a>
+    </div>
+    <a href="{% url 'accounts:logout' %}" class="btn btn-danger btn-block sheet-logout">{% icon "logout" 18 %} Sign out</a>
+  </div>
+</div>
+
+<script>
+// Sidebar Toggle: Drawer on Mobile, Collapsible Icon Rail on Desktop
+const btn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const backdrop = document.getElementById('sidebarBackdrop');
+
+function toggleSidebar() {
+  if (!sidebar) return;
+  if (window.innerWidth <= 768) {
+    const willOpen = !sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', willOpen);
+    if (backdrop) backdrop.classList.toggle('active', willOpen);
+    document.body.classList.toggle('sidebar-locked', willOpen);
+  } else {
+    document.body.classList.toggle('sidebar-collapsed');
+    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+    try { localStorage.setItem('mtx_sidebar_collapsed', isCollapsed ? '1' : '0'); } catch(e) {}
+  }
+}
+
+if (btn) btn.addEventListener('click', toggleSidebar);
+
+if (backdrop) {
+  backdrop.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('active');
+    document.body.classList.remove('sidebar-locked');
+  });
+}
+
+if (sidebar) {
+  sidebar.querySelectorAll('.nav-item, .user-chip').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.classList.remove('sidebar-locked');
+      }
+    });
+  });
+}
+
+// Restore saved desktop collapsed state
+try {
+  if (window.innerWidth > 768 && localStorage.getItem('mtx_sidebar_collapsed') === '1') {
+    document.body.classList.add('sidebar-collapsed');
+  }
+} catch(e) {}
+
+// Auto-dismiss toasts
+document.querySelectorAll('.toast').forEach(t => setTimeout(() => t.remove(), 6000));
+
+// Responsive tables: label each cell with its column header so tables
+// collapse into readable stacked cards on phones (see .table rules in style.css)
+document.querySelectorAll('table.table').forEach(table => {
+  const heads = Array.from(table.querySelectorAll('thead th'));
+  const labels = heads.map(th => th.textContent.trim());
+  heads.forEach(th => { if (th.querySelector('input[type=checkbox]')) th.classList.add('th-check'); });
+  table.classList.add('table-responsive');
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    let primarySet = false;
+    Array.from(tr.children).forEach((td, i) => {
+      if (td.hasAttribute('colspan')) { td.classList.add('cell-full'); return; }
+      if (td.querySelector('input[type=checkbox]') && td.textContent.trim() === '') { td.classList.add('cell-check'); return; }
+      if (td.classList.contains('thumb-cell')) return;
+      if (td.classList.contains('action-cell')) return;
+      if (labels[i]) td.setAttribute('data-label', labels[i]);
+      if (!primarySet && td.textContent.trim() !== '') { td.classList.add('cell-primary'); primarySet = true; }
+    });
+    // Whole card is tappable on phones: navigate to the row's main link
+    const primary = tr.querySelector('td.cell-primary a[href]');
+    if (primary) {
+      tr.classList.add('row-link');
+      tr.addEventListener('click', e => {
+        if (!isPhone()) return;
+        if (e.target.closest('a, button, input, select, textarea, label, form')) return;
+        window.location.href = primary.href;
+      });
+    }
+  });
+});
+
+function isPhone() { return window.matchMedia('(max-width: 640px)').matches; }
+
+// "More" bottom sheet
+(function () {
+  const moreBtn = document.getElementById('moreBtn');
+  const sheet = document.getElementById('moreSheet');
+  const sb = document.getElementById('sheetBackdrop');
+  if (!moreBtn || !sheet) return;
+  function setSheet(open) {
+    sheet.classList.toggle('open', open);
+    sb.classList.toggle('active', open);
+    document.body.classList.toggle('sidebar-locked', open);
+    moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  moreBtn.addEventListener('click', () => setSheet(!sheet.classList.contains('open')));
+  sb.addEventListener('click', () => setSheet(false));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') setSheet(false); });
+  // Swipe down to close
+  let startY = null;
+  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchmove', e => {
+    if (startY !== null && e.touches[0].clientY - startY > 60) { setSheet(false); startY = null; }
+  }, { passive: true });
+})();
+
+// Floating "Add" button on phones: reuse the page's primary header action
+(function () {
+  const primary = document.querySelector('.page-header .page-actions > a.btn:not(.btn-secondary):not(.btn-danger), .page-header > a.btn:not(.btn-secondary):not(.btn-danger)');
+  if (!primary) return;
+  primary.classList.add('has-fab');
+  const fab = document.createElement('a');
+  fab.href = primary.href;
+  fab.className = 'fab';
+  fab.setAttribute('aria-label', primary.textContent.trim());
+  fab.innerHTML = primary.innerHTML;
+  document.body.appendChild(fab);
+})();
+
+// Collapsible filter panels on phones: keep the search box, hide the rest behind a toggle
+document.querySelectorAll('form.filter-bar').forEach(form => {
+  const fields = Array.from(form.querySelectorAll('input:not([type=hidden]), select'));
+  if (fields.length < 2) return;
+  const active = fields.slice(1).filter(f => f.value && f.value.trim() !== '').length;
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'btn btn-secondary filter-toggle';
+  toggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>'
+    + (active ? '<span class="filter-count">' + active + '</span>' : '');
+  toggle.setAttribute('aria-label', 'Show filters');
+  const first = form.firstElementChild;
+  first.classList.add('filter-search');
+  first.after(toggle);
+  form.classList.add('filters-collapsed');
+  toggle.addEventListener('click', () => {
+    const collapsed = form.classList.toggle('filters-collapsed');
+    toggle.classList.toggle('active', !collapsed);
+    toggle.setAttribute('aria-label', collapsed ? 'Show filters' : 'Hide filters');
+  });
+});
+</script>
+{% endblock %}
+

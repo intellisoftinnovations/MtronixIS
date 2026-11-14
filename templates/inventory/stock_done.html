@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load mtx %}
+
+{% block page_title %}Success{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass done-card" style="text-align:center">
+    <div class="done-check {% if mv.is_in %}text-success{% else %}text-danger{% endif %}">{% icon "check" 48 %}</div>
+    <h2>{% if mv.is_in %}Stock In{% else %}Stock Out{% endif %} recorded!</h2>
+    <p class="done-receipt">{{ mv.receipt_no }}</p>
+    <p>{{ mv.product.name }} · {{ mv.carton.carton_code }}</p>
+    <p><strong>{% if mv.is_in %}+{% else %}-{% endif %}{{ mv.cartons_moved }} carton{{ mv.cartons_moved|pluralize }}</strong> ({{ mv.qty_moved }} units)</p>
+    <p class="text-muted">{{ mv.created_at|bdtime }}</p>
+    <div class="done-actions">
+      <a href="{% url 'inventory:movement_pdf' mv.pk %}?download=1" class="btn">{% icon "download" 18 %} Download PDF</a>
+      <a href="{% url 'inventory:movement_pdf' mv.pk %}" class="btn btn-secondary" target="_blank">{% icon "eye" 18 %} View PDF</a>
+      <a href="{% url 'inventory:scan' %}" class="btn btn-secondary">{% icon "scan" 18 %} Scan next</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}Confirm {{ data.type }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass confirm-card">
+    <h2 class="{% if is_in %}text-success{% else %}text-danger{% endif %}">
+      {% if is_in %}{% icon "arrow-down" 24 %} Confirm Stock In{% else %}{% icon "arrow-up" 24 %} Confirm Stock Out{% endif %}
+    </h2>
+    <div class="confirm-details">
+      <div class="confirm-row"><span class="text-muted">Product</span><strong>{{ product.name }}</strong></div>
+      <div class="confirm-row"><span class="text-muted">SKU</span>{{ product.sku }}</div>
+      <div class="confirm-row"><span class="text-muted">Carton</span>{{ carton.carton_code }}</div>
+      <div class="confirm-row"><span class="text-muted">Inventory</span>{{ carton.inventory.name }}</div>
+      <div class="confirm-row"><span class="text-muted">Cartons</span><strong>{% if is_in %}+{% else %}-{% endif %}{{ data.cartons|intcomma }}</strong></div>
+      <div class="confirm-row"><span class="text-muted">Qty per carton</span>{{ carton.qty_per_carton|intcomma }}</div>
+      <div class="confirm-row"><span class="text-muted">Total quantity</span><strong>{% if is_in %}+{% else %}-{% endif %}{{ preview.qty_moved|intcomma }} units</strong></div>
+      <div class="confirm-row"><span class="text-muted">Before</span>{{ preview.cartons_before|intcomma }} cartons · {{ preview.stock_before|intcomma }} units</div>
+      <div class="confirm-row"><span class="text-muted">After</span><strong>{{ preview.cartons_after|intcomma }} cartons · {{ preview.stock_after|intcomma }} units</strong></div>
+      {% if data.reference %}<div class="confirm-row"><span class="text-muted">Reference</span>{{ data.reference }}</div>{% endif %}
+      {% if data.note %}<div class="confirm-row"><span class="text-muted">Note</span>{{ data.note }}</div>{% endif %}
+    </div>
+    <form method="post" action="{% url 'inventory:stock_commit' %}" id="confirmForm">
+      {% csrf_token %}
+      <input type="hidden" name="carton_id" value="{{ data.carton_id }}">
+      <input type="hidden" name="type" value="{{ data.type }}">
+      <input type="hidden" name="cartons" value="{{ data.cartons }}">
+      <input type="hidden" name="reference" value="{{ data.reference }}">
+      <input type="hidden" name="note" value="{{ data.note }}">
+      <input type="hidden" name="idempotency_key" value="{{ data.idempotency_key }}">
+    </form>
+    <div class="mobile-action-bar">
+      <a href="{% url 'inventory:scan_result' carton.qr_token %}" class="btn btn-secondary">← Back</a>
+      <button type="button" class="btn {% if is_in %}btn-success{% else %}btn-danger{% endif %}" onclick="this.disabled=true;document.getElementById('confirmForm').submit();">
+        {% icon "check" 18 %} {% if is_in %}Confirm Stock In{% else %}Confirm Stock Out{% endif %}
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

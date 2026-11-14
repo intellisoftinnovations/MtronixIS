@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}{{ product.name }}{% endblock %}
+{% block title %}{{ product.name }} · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+  <div class="detail-image glass">
+    {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span class="detail-no-image">{% icon "image" 48 %}</span>{% endif %}
+  </div>
+  <div class="detail-info">
+    <h2>{{ product.name }}{% if product.is_deleted %} <span class="badge badge-danger">Deleted</span>{% endif %}</h2>
+    <p class="text-muted">SKU: {{ product.sku }}</p>
+    {% if product.description %}<p>{{ product.description }}</p>{% endif %}
+    <div class="detail-stats">
+      <span><strong>{{ totals.c|intcomma }}</strong> cartons</span>
+      <span><strong>{{ totals.u|intcomma }}</strong> units</span>
+    </div>
+    <div class="detail-actions">
+      <a href="{% url 'inventory:product_edit' product.pk %}" class="btn btn-sm btn-secondary">{% icon "edit" 16 %} Edit</a>
+      <a href="{% url 'inventory:carton_create' %}?product={{ product.pk }}" class="btn btn-sm">{% icon "plus" 16 %} Add carton</a>
+      {% if not product.is_deleted %}
+      <form method="post" action="{% url 'inventory:product_delete' product.pk %}" class="inline" onsubmit="return confirm('Delete this product?')">{% csrf_token %}<button class="btn btn-sm btn-danger">{% icon "trash" 16 %} Delete</button></form>
+      {% else %}
+      <form method="post" action="{% url 'inventory:product_restore' product.pk %}" class="inline">{% csrf_token %}<button class="btn btn-sm btn-secondary">{% icon "restore" 16 %} Restore</button></form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="dash-grid">
+  <div class="card glass">
+    <h3>QR Code</h3>
+    <img src="{{ qr }}" alt="QR" class="qr-detail-img">
+    <p class="text-sm text-muted qr-url-text">{{ public_url }}</p>
+    <div class="detail-actions">
+      <a href="{% url 'inventory:labels_print' %}?p={{ product.pk }}" class="btn btn-sm btn-secondary">{% icon "print" 16 %} Print label</a>
+      <a href="{% url 'inventory:qr_image' product.qr_token %}?download=1" class="btn btn-sm btn-secondary">{% icon "download" 16 %} Download</a>
+      {% if request.user.is_admin %}
+      <form method="post" action="{% url 'inventory:product_regenerate_qr' product.pk %}" class="inline" onsubmit="return confirm('Regenerate QR? Old labels will stop working.')">{% csrf_token %}<button class="btn btn-sm btn-danger">{% icon "refresh" 16 %} Regenerate</button></form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card glass">
+    <h3>Cartons</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Code</th><th>Inventory</th><th class="num">Count</th><th class="num">Qty</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for c in cartons %}
+          <tr>
+            <td><a href="{{ c.get_absolute_url }}">{{ c.carton_code }}</a></td>
+            <td>{{ c.inventory.name }}</td>
+            <td class="num">{{ c.carton_count|intcomma }}</td>
+            <td class="num">{{ c.total_quantity|intcomma }}</td>
+            <td><span class="badge badge-{{ c.status|status_badge }}">{{ c.get_status_display }}</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-muted">No cartons.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if movements %}
+<div class="card glass">
+  <h3>Recent movements</h3>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Receipt</th><th>Type</th><th>Carton</th><th class="num">Moved</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for mv in movements %}
+        <tr>
+          <td><a href="{{ mv.get_absolute_url }}">{{ mv.receipt_no }}</a></td>
+          <td><span class="badge badge-{% if mv.is_in %}success{% else %}danger{% endif %}">{{ mv.get_type_display }}</span></td>
+          <td>{{ mv.carton.carton_code }}</td>
+          <td class="num">{{ mv.cartons_moved|intcomma }}</td>
+          <td>{{ mv.created_at|bdtime_short }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+

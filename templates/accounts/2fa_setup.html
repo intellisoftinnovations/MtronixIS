@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static mtx %}
+
+{% block page_title %}Set up two-factor authentication{% endblock %}
+{% block title %}2FA Setup · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass">
+    <h2>{% icon "shield" %} Set up 2FA</h2>
+    <p>Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code to confirm.</p>
+    <div class="twofa-qr">
+      <img src="{{ qr_code }}" alt="2FA QR code" width="200" height="200" class="qr-img">
+      <p class="text-muted text-sm" style="margin-top:12px">Or enter manually into your app: <code style="user-select:all; font-weight:600">{{ secret }}</code></p>
+    </div>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="field">
+        <label>Verification code</label>
+        {{ form.code }}
+        {% if form.code.errors %}<p class="field-error">{{ form.code.errors.0 }}</p>{% endif %}
+      </div>
+      <button type="submit" class="btn">Enable 2FA</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+

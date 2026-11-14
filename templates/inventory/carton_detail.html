@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load mtx humanize %}
+
+{% block page_title %}{{ carton.carton_code }}{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+  <div class="detail-info">
+    <h2>{{ carton.carton_code }}{% if carton.is_deleted %} <span class="badge badge-danger">Deleted</span>{% endif %}</h2>
+    <p>{{ carton.product.name }} <span class="text-muted">[{{ carton.product.sku }}]</span></p>
+    <p class="text-muted">{{ carton.inventory.name }} ({{ carton.inventory.code }})</p>
+    <div class="detail-stats">
+      <span><strong>{{ carton.carton_count|intcomma }}</strong> cartons</span>
+      <span><strong>{{ carton.total_quantity|intcomma }}</strong> units</span>
+      <span>{{ carton.qty_per_carton }} per carton</span>
+      <span class="badge badge-{{ carton.status|status_badge }}">{{ carton.get_status_display }}</span>
+    </div>
+    <div class="detail-actions">
+      <a href="{% url 'inventory:scan_result' carton.qr_token %}" class="btn btn-sm">{% icon "scan" 16 %} Stock In/Out</a>
+      <a href="{% url 'inventory:carton_edit' carton.pk %}" class="btn btn-sm btn-secondary">{% icon "edit" 16 %} Edit</a>
+      {% if not carton.is_deleted %}
+      <form method="post" action="{% url 'inventory:carton_delete' carton.pk %}" class="inline" onsubmit="return confirm('Delete this carton?')">{% csrf_token %}<button class="btn btn-sm btn-danger">{% icon "trash" 16 %} Delete</button></form>
+      {% else %}
+      <form method="post" action="{% url 'inventory:carton_restore' carton.pk %}" class="inline">{% csrf_token %}<button class="btn btn-sm btn-secondary">{% icon "restore" 16 %} Restore</button></form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card glass" style="text-align:center">
+    <img src="{{ qr }}" alt="QR" class="qr-detail-img">
+    <a href="{% url 'inventory:labels_print' %}?c={{ carton.pk }}" class="btn btn-sm btn-secondary">{% icon "print" 16 %} Print</a>
+  </div>
+</div>
+
+{% if movements %}
+<div class="card glass">
+  <h3>Movement history</h3>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Receipt</th><th>Type</th><th class="num">Moved</th><th class="num">Before</th><th class="num">After</th><th>By</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for mv in movements %}
+        <tr>
+          <td><a href="{{ mv.get_absolute_url }}">{{ mv.receipt_no }}</a></td>
+          <td><span class="badge badge-{% if mv.is_in %}success{% else %}danger{% endif %}">{{ mv.get_type_display }}</span></td>
+          <td class="num">{{ mv.cartons_moved|intcomma }}</td>
+          <td class="num">{{ mv.cartons_before|intcomma }}</td>
+          <td class="num">{{ mv.cartons_after|intcomma }}</td>
+          <td>{{ mv.user_display }}</td>
+          <td>{{ mv.created_at|bdtime_short }}</td>
+          <td><a href="{% url 'inventory:movement_pdf' mv.pk %}" class="icon-btn" title="PDF">{% icon "download" 16 %}</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+

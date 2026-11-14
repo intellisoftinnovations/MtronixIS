@@ -1,0 +1,15 @@
+{% extends "base_bare.html" %}
+{% load mtx %}
+
+{% block title %}QR Code Invalid{% endblock %}
+
+{% block body %}
+<div class="public-page">
+  <div class="public-card glass-strong">
+    <div class="public-no-img">{% icon "x" 64 %}</div>
+    <h1>Invalid QR code</h1>
+    <p class="text-muted">This QR code is not recognized or has been revoked.</p>
+  </div>
+</div>
+{% endblock %}
+

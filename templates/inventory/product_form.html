@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+{% load mtx %}
+
+{% block page_title %}{{ title }}{% endblock %}
+{% block title %}{{ title }} · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block content %}
+<div class="narrow-page">
+  <div class="card glass">
+    <h2>{{ title }}</h2>
+    <form method="post" enctype="multipart/form-data" novalidate id="productForm">
+      {% csrf_token %}
+      {% for field in form %}
+      {% if field.name == "image" %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+
+        {# Hidden/native file input bound to Django form #}
+        <div class="prod-img-native-wrap">
+          {{ field }}
+        </div>
+
+        {# Live preview of current or newly captured/selected image #}
+        <div id="imgPreviewWrap" class="prod-img-preview" style="{% if not product or not product.image %}display:none{% endif %}">
+          <img id="imgPreview" src="{% if product and product.image %}{{ product.image.url }}{% endif %}" alt="Product preview">
+          <button type="button" id="clearPreviewBtn" class="btn btn-sm btn-danger prod-img-clear" title="Remove selected photo" style="display:none">{% icon "trash" 14 %} Clear</button>
+        </div>
+
+        {# Live camera viewport #}
+        <div id="cameraBox" class="prod-cam-box" style="display:none">
+          <video id="camVideo" autoplay playsinline muted></video>
+          <canvas id="camCanvas" style="display:none"></canvas>
+          <div class="prod-cam-controls">
+            <button type="button" id="captureBtn" class="btn btn-sm">{% icon "camera" 16 %} Capture</button>
+            <button type="button" id="flipCamBtn" class="btn btn-sm btn-secondary">{% icon "refresh" 16 %} Flip</button>
+            <button type="button" id="closeCamBtn" class="btn btn-sm btn-danger">{% icon "power" 16 %} Close</button>
+          </div>
+        </div>
+
+        {# Camera / Upload action buttons #}
+        <div class="prod-img-actions">
+          <button type="button" id="openCamBtn" class="btn btn-sm">{% icon "camera" 16 %} Take Photo</button>
+          <button type="button" id="snapNativeBtn" class="btn btn-sm btn-secondary">{% icon "image" 16 %} Snap / Gallery</button>
+          <button type="button" id="chooseFileBtn" class="btn btn-sm btn-secondary">{% icon "upload" 16 %} Choose File</button>
+        </div>
+
+        <input type="file" id="nativeCamInput" accept="image/*" capture="environment" style="display:none">
+        <p id="camStatus" class="field-help"></p>
+        {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+        {% for e in field.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      </div>
+      {% elif field.name == "sku" %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        <div class="sku-input-row">
+          {{ field }}
+          <button type="button" id="autoSkuBtn" class="btn btn-sm btn-secondary" title="Auto-generate SKU">{% icon "refresh" 16 %} Auto</button>
+        </div>
+        {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+        {% for e in field.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      </div>
+      {% else %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+        {% for e in field.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      </div>
+      {% endif %}
+      {% endfor %}
+      {% for e in form.non_field_errors %}<p class="field-error">{{ e }}</p>{% endfor %}
+      <button type="submit" class="btn">Save</button>
+      <a href="{% if product %}{{ product.get_absolute_url }}{% else %}{% url 'inventory:product_list' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+    </form>
+  </div>
+</div>
+
+<style>
+.prod-img-native-wrap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+.prod-img-preview {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.25);
+}
+.prod-img-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.prod-img-clear {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.prod-cam-box {
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 2px solid var(--accent);
+  background: #0a0f12;
+  padding: 8px;
+}
+.prod-cam-box video {
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+.prod-cam-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.prod-img-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sku-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.sku-input-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.sku-input-row .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .prod-img-actions .btn {
+    flex: 1 1 auto;
+  }
+  .prod-img-preview {
+    margin: 0 auto 12px;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const autoSkuBtn = document.getElementById('autoSkuBtn');
+  const skuInput = document.getElementById('id_sku');
+  const nameInput = document.getElementById('id_name');
+  if (autoSkuBtn && skuInput) {
+    autoSkuBtn.addEventListener('click', function () {
+      const rawName = (nameInput ? nameInput.value : '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const prefix = rawName.slice(0, 3) || 'MTX';
+      const num = Math.floor(10000 + Math.random() * 90000);
+      skuInput.value = prefix + '-' + num;
+      skuInput.focus();
+    });
+  }
+
+  const fileInput = document.getElementById('id_image');
+  const nativeCamInput = document.getElementById('nativeCamInput');
+  const previewWrap = document.getElementById('imgPreviewWrap');
+  const previewImg = document.getElementById('imgPreview');
+  const clearPreviewBtn = document.getElementById('clearPreviewBtn');
+  const camBox = document.getElementById('cameraBox');
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  const openCamBtn = document.getElementById('openCamBtn');
+  const snapNativeBtn = document.getElementById('snapNativeBtn');
+  const chooseFileBtn = document.getElementById('chooseFileBtn');
+  const captureBtn = document.getElementById('captureBtn');
+  const flipCamBtn = document.getElementById('flipCamBtn');
+  const closeCamBtn = document.getElementById('closeCamBtn');
+  const camStatus = document.getElementById('camStatus');
+
+  let stream = null;
+  let facingMode = 'environment';
+  let isAssigning = false;
+  const TARGET_MAX_BYTES = 100 * 1024;
+  const MAX_DIM = 1200;
+  const originalSrc = previewImg ? previewImg.getAttribute('src') : '';
+
+  function stopStream() {
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+    if (video) video.srcObject = null;
+    if (camBox) camBox.style.display = 'none';
+  }
+
+  function showPreview(file) {
+    if (!file || !previewImg || !previewWrap) return;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewWrap.style.display = 'block';
+    if (clearPreviewBtn) clearPreviewBtn.style.display = 'inline-flex';
+  }
+
+  function formatKB(bytes) {
+    return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  }
+
+  function assignFile(file) {
+    if (!fileInput || !file) return;
+    isAssigning = true;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+    } finally {
+      isAssigning = false;
+    }
+    showPreview(file);
+    if (camStatus) camStatus.textContent = 'Ready: ' + file.name + ' (' + formatKB(file.size) + ')';
+  }
+
+  function canvasToBlob(c, quality) {
+    return new Promise(resolve => c.toBlob(resolve, 'image/jpeg', quality));
+  }
+
+  async function compressCanvasUnder100KB(srcCanvas, baseName) {
+    const work = document.createElement('canvas');
+    let w = srcCanvas.width;
+    let h = srcCanvas.height;
+    if (Math.max(w, h) > MAX_DIM) {
+      const scale = MAX_DIM / Math.max(w, h);
+      w = Math.round(w * scale);
+      h = Math.round(h * scale);
+    }
+    work.width = w;
+    work.height = h;
+    work.getContext('2d').drawImage(srcCanvas, 0, 0, w, h);
+
+    let blob = await canvasToBlob(work, 0.82);
+    if (blob && blob.size > TARGET_MAX_BYTES) {
+      for (const q of [0.72, 0.60, 0.48, 0.36, 0.28]) {
+        blob = await canvasToBlob(work, q);
+        if (!blob || blob.size <= TARGET_MAX_BYTES) break;
+      }
+    }
+    while (blob && blob.size > TARGET_MAX_BYTES && Math.max(work.width, work.height) > 160) {
+      const nw = Math.max(160, Math.round(work.width * 0.78));
+      const nh = Math.max(160, Math.round(work.height * 0.78));
+      const tmp = document.createElement('canvas');
+      tmp.width = nw;
+      tmp.height = nh;
+      tmp.getContext('2d').drawImage(work, 0, 0, nw, nh);
+      work.width = nw;
+      work.height = nh;
+      work.getContext('2d').drawImage(tmp, 0, 0);
+      for (const q of [0.65, 0.50, 0.38, 0.28]) {
+        blob = await canvasToBlob(work, q);
+        if (!blob || blob.size <= TARGET_MAX_BYTES) break;
+      }
+    }
+    if (!blob) return null;
+    const cleanName = baseName.replace(/\.[^.]+$/, '') + '.jpg';
+    return new File([blob], cleanName, { type: 'image/jpeg' });
+  }
+
+  function compressFileIfNeeded(file) {
+    if (!file) return Promise.resolve(null);
+    if (file.size <= TARGET_MAX_BYTES) return Promise.resolve(file);
+    if (camStatus) camStatus.textContent = 'Resizing image under 100 KB...';
+    return new Promise(resolve => {
+      const img = new Image();
+      const objUrl = URL.createObjectURL(file);
+      img.onload = async function () {
+        URL.revokeObjectURL(objUrl);
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth || img.width;
+        c.height = img.naturalHeight || img.height;
+        c.getContext('2d').drawImage(img, 0, 0);
+        const compressed = await compressCanvasUnder100KB(c, file.name || 'product.jpg');
+        resolve(compressed || file);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(objUrl);
+        resolve(file);
+      };
+      img.src = objUrl;
+    });
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (camStatus) {
+        camStatus.textContent = 'Live camera requires HTTPS (or localhost). Opening phone camera instead...';
+      }
+      if (nativeCamInput) nativeCamInput.click();
+      return;
+    }
+    stopStream();
+    if (camStatus) camStatus.textContent = 'Starting camera...';
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      camBox.style.display = 'block';
+      if (camStatus) camStatus.textContent = 'Point camera at the product and tap Capture.';
+    } catch (err) {
+      stopStream();
+      if (camStatus) {
+        camStatus.textContent = 'Camera unavailable (' + (err.name || err.message) + '). Use "Snap / Gallery" or "Choose File".';
+      }
+    }
+  }
+
+  if (openCamBtn) openCamBtn.addEventListener('click', startCamera);
+
+  if (flipCamBtn) {
+    flipCamBtn.addEventListener('click', function () {
+      facingMode = (facingMode === 'environment') ? 'user' : 'environment';
+      startCamera();
+    });
+  }
+
+  if (closeCamBtn) {
+    closeCamBtn.addEventListener('click', function () {
+      stopStream();
+      if (camStatus) camStatus.textContent = '';
+    });
+  }
+
+  if (captureBtn) {
+    captureBtn.addEventListener('click', async function () {
+      if (!video || !video.videoWidth) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      const file = await compressCanvasUnder100KB(canvas, 'product-' + Date.now() + '.jpg');
+      if (file) assignFile(file);
+      stopStream();
+    });
+  }
+
+  if (snapNativeBtn && nativeCamInput) {
+    snapNativeBtn.addEventListener('click', function () {
+      stopStream();
+      nativeCamInput.click();
+    });
+    nativeCamInput.addEventListener('change', async function (e) {
+      if (e.target.files && e.target.files[0]) {
+        const processed = await compressFileIfNeeded(e.target.files[0]);
+        if (processed) assignFile(processed);
+      }
+    });
+  }
+
+  if (chooseFileBtn && fileInput) {
+    chooseFileBtn.addEventListener('click', function () {
+      stopStream();
+      fileInput.click();
+    });
+  }
+
+  if (fileInput) {
+    fileInput.addEventListener('change', async function (e) {
+      if (isAssigning) return;
+      if (e.target.files && e.target.files[0]) {
+        const raw = e.target.files[0];
+        const processed = await compressFileIfNeeded(raw);
+        if (processed && processed !== raw) {
+          assignFile(processed);
+        } else if (processed) {
+          showPreview(processed);
+          if (camStatus) camStatus.textContent = 'Ready: ' + processed.name + ' (' + formatKB(processed.size) + ')';
+        }
+      }
+    });
+  }
+
+  if (clearPreviewBtn) {
+    clearPreviewBtn.addEventListener('click', function () {
+      if (fileInput) fileInput.value = '';
+      if (nativeCamInput) nativeCamInput.value = '';
+      if (originalSrc) {
+        previewImg.src = originalSrc;
+      } else {
+        previewImg.src = '';
+        previewWrap.style.display = 'none';
+      }
+      clearPreviewBtn.style.display = 'none';
+      if (camStatus) camStatus.textContent = '';
+    });
+  }
+
+  window.addEventListener('beforeunload', stopStream);
+});
+</script>
+{% endblock %}
