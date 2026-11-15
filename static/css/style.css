@@ -1019,24 +1019,15 @@ button.mnav-item { background: none; border: none; font-family: inherit; cursor:
   }
   .filter-bar:not(.filters-collapsed) > .filter-toggle { align-self: flex-end; order: -1; }
 
-  /* --- Sticky primary actions --- */
-  .sticky-submit {
-    position: sticky; z-index: 5;
-    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 8px);
-    padding-top: 10px;
-  }
-  .sticky-submit .btn { min-height: 54px; font-size: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  /* --- Primary action spacing (no overlap with fields or summary rows) --- */
+  .sticky-submit { margin-top: 14px; }
+  .sticky-submit .btn { min-height: 54px; font-size: 16px; }
 
   .mobile-action-bar {
-    position: fixed; left: 0; right: 0; z-index: 94; margin: 0;
-    bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
     display: grid; grid-template-columns: auto 1fr; gap: 10px;
-    padding: 10px 14px;
-    background: rgba(22,31,36,0.94); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-    border-top: 1px solid var(--glass-border);
+    margin-top: 16px;
   }
   .mobile-action-bar .btn { min-height: 54px; font-size: 16px; }
-  .confirm-card { margin-bottom: 90px; }
 
   /* --- Thumb-friendly forms --- */
   .input { min-height: 52px; }

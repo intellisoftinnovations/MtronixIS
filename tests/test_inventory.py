@@ -169,9 +169,10 @@ class InventoryServiceTests(TestCase):
         self.assertFalse(dup_form.is_valid())
         self.assertIn("sku", dup_form.errors)
 
-    def test_carton_edit_post_succeeds_with_disabled_fields(self):
+    def test_carton_edit_post_succeeds_and_allows_product_inventory_edit(self):
         from django.urls import reverse
 
+        other_product = Product.objects.create(name="Power Supply 12V", sku="MTR-PSU-12")
         self.client.force_login(self.user)
         session = self.client.session
         session["session_version"] = self.user.session_version
@@ -180,6 +181,8 @@ class InventoryServiceTests(TestCase):
         resp = self.client.post(
             reverse("inventory:carton_edit", args=[self.carton.pk]),
             {
+                "product": other_product.pk,
+                "inventory": self.inventory.pk,
                 "carton_code": "CTN-01-EDITED",
                 "qty_per_carton": 15,
                 "status": Carton.Status.ON_HOLD,
@@ -190,10 +193,10 @@ class InventoryServiceTests(TestCase):
         self.assertEqual(self.carton.carton_code, "CTN-01-EDITED")
         self.assertEqual(self.carton.qty_per_carton, 15)
         self.assertEqual(self.carton.status, Carton.Status.ON_HOLD)
-        # Disabled fields remain unchanged
-        self.assertEqual(self.carton.carton_count, 20)
-        self.assertEqual(self.carton.product_id, self.product.pk)
+        self.assertEqual(self.carton.product_id, other_product.pk)
         self.assertEqual(self.carton.inventory_id, self.inventory.pk)
+        # Disabled carton_count remains unchanged
+        self.assertEqual(self.carton.carton_count, 20)
 
     def test_closed_on_hold_and_damaged_carton_status_blocks_movements(self):
         self.carton.status = Carton.Status.CLOSED
