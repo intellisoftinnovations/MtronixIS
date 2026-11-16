@@ -211,3 +211,21 @@ class InventoryServiceTests(TestCase):
             self.carton.save(update_fields=["status"])
             with self.assertRaises(StockError):
                 record_movement(user=self.user, carton_id=self.carton.pk, movement_type=StockMovement.Type.OUT, cartons=1)
+
+    def test_scan_lookup_handles_receipt_verify_qr_url(self):
+        from django.urls import reverse
+
+        mv, _ = record_movement(
+            user=self.user,
+            carton_id=self.carton.pk,
+            movement_type=StockMovement.Type.IN,
+            cartons=2,
+        )
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["session_version"] = self.user.session_version
+        session.save()
+
+        verify_url = f"https://mtronixis.pythonanywhere.com/stock/verify/{mv.verify_token}/"
+        resp = self.client.get(reverse("inventory:scan_lookup"), {"code": verify_url})
+        self.assertRedirects(resp, reverse("inventory:movement_verify", args=[mv.verify_token]))

@@ -18,6 +18,7 @@ from inventory.permissions import allowed_inventory_ids, can_access_inventory, c
 from inventory.services import StockError, preview_movement, record_movement
 
 TOKEN_IN_URL = re.compile(r"/q/([A-Za-z0-9_\-]{10,64})/?")
+VERIFY_TOKEN_IN_URL = re.compile(r"/stock/verify/([A-Za-z0-9_\-]{10,64})/?")
 
 
 @login_required
@@ -30,9 +31,16 @@ def scan_lookup(request):
     code = request.GET.get("code", "").strip()[:300]
     if not code:
         return redirect("inventory:scan")
+    vm = VERIFY_TOKEN_IN_URL.search(code)
+    if vm:
+        vtoken = vm.group(1)
+        if StockMovement.objects.filter(verify_token=vtoken).exists():
+            return redirect("inventory:movement_verify", token=vtoken)
     m = TOKEN_IN_URL.search(code)
     if m:
         code = m.group(1)
+    if StockMovement.objects.filter(verify_token=code).exists():
+        return redirect("inventory:movement_verify", token=code)
     cartons = cartons_for(request.user).filter(product__is_deleted=False)
     if cartons.filter(qr_token=code).exists() or Product.objects.alive().filter(qr_token=code).exists():
         return redirect("inventory:scan_result", token=code)
@@ -44,6 +52,9 @@ def scan_lookup(request):
     product = Product.objects.alive().filter(sku__iexact=code).first()
     if product:
         return redirect("inventory:scan_result", token=product.qr_token)
+    mv_by_no = StockMovement.objects.select_related("inventory").filter(receipt_no__iexact=code).first()
+    if mv_by_no and can_access_inventory(request.user, mv_by_no.inventory):
+        return redirect("inventory:movement_detail", pk=mv_by_no.pk)
     messages.error(request, f"No product or carton found for “{code[:60]}”, or you don’t have access to it.")
     return redirect("inventory:scan")
 
