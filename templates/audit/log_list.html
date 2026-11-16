@@ -67,7 +67,7 @@
           <td class="num">{% if e.quantity is not None %}{{ e.quantity }}{% endif %}</td>
           <td class="num">{% if e.before is not None %}{{ e.before }} → {{ e.after }}{% endif %}</td>
           <td class="text-sm">{{ e.note|truncatechars:50 }}</td>
-          <td>{% if e.movement and e.movement.pdf %}<a href="{% url 'inventory:movement_pdf' e.movement.pk %}" class="icon-btn" title="PDF">{% icon "download" 14 %}</a>{% endif %}</td>
+          <td>{% if e.movement %}<a href="{% url 'inventory:movement_pdf' e.movement.pk %}" class="icon-btn" title="PDF">{% icon "download" 14 %}</a>{% endif %}</td>
         </tr>
         {% empty %}
         <tr><td colspan="9" class="text-muted">No log entries found.</td></tr>

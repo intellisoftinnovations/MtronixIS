@@ -5,29 +5,40 @@
 
 {% block content %}
 <div class="detail-header">
-  <div class="detail-info">
-    <h2>{{ carton.carton_code }}{% if carton.is_deleted %} <span class="badge badge-danger">Deleted</span>{% endif %}</h2>
-    <p>{{ carton.product.name }} <span class="text-muted">[{{ carton.product.sku }}]</span></p>
-    <p class="text-muted">{{ carton.inventory.name }} ({{ carton.inventory.code }})</p>
-    <div class="detail-stats">
-      <span><strong>{{ carton.carton_count|intcomma }}</strong> cartons</span>
-      <span><strong>{{ carton.total_quantity|intcomma }}</strong> units</span>
-      <span>{{ carton.qty_per_carton }} per carton</span>
-      <span class="badge badge-{{ carton.status|status_badge }}">{{ carton.get_status_display }}</span>
+  <div class="card glass detail-hero">
+    <div class="detail-image glass">
+      {% if carton.product.image %}<img src="{{ carton.product.image.url }}" alt="{{ carton.product.name }}">{% else %}<span class="detail-no-image">{% icon "image" 48 %}</span>{% endif %}
     </div>
-    <div class="detail-actions">
-      <a href="{% url 'inventory:scan_result' carton.qr_token %}" class="btn btn-sm">{% icon "scan" 16 %} Stock In/Out</a>
-      <a href="{% url 'inventory:carton_edit' carton.pk %}" class="btn btn-sm btn-secondary">{% icon "edit" 16 %} Edit</a>
-      {% if not carton.is_deleted %}
-      <form method="post" action="{% url 'inventory:carton_delete' carton.pk %}" class="inline" onsubmit="return confirm('Delete this carton?')">{% csrf_token %}<button class="btn btn-sm btn-danger">{% icon "trash" 16 %} Delete</button></form>
-      {% else %}
-      <form method="post" action="{% url 'inventory:carton_restore' carton.pk %}" class="inline">{% csrf_token %}<button class="btn btn-sm btn-secondary">{% icon "restore" 16 %} Restore</button></form>
-      {% endif %}
+    <div class="detail-info">
+      <div class="detail-title-row">
+        <h2>{{ carton.carton_code }}{% if carton.is_deleted %} <span class="badge badge-danger">Deleted</span>{% endif %}</h2>
+        <span class="badge badge-{{ carton.status|status_badge }}">{{ carton.get_status_display }}</span>
+      </div>
+      <p class="detail-subtitle">
+        <a href="{{ carton.product.get_absolute_url }}"><strong>{{ carton.product.name }}</strong></a>
+        <span class="text-muted">[{{ carton.product.sku }}]</span>
+      </p>
+      <p class="text-muted text-sm">{{ carton.inventory.name }} ({{ carton.inventory.code }})</p>
+      <div class="detail-stats">
+        <span class="stat-pill"><strong>{{ carton.carton_count|intcomma }}</strong> cartons</span>
+        <span class="stat-pill"><strong>{{ carton.total_quantity|intcomma }}</strong> units</span>
+        <span class="stat-pill">{{ carton.qty_per_carton|intcomma }} / carton</span>
+      </div>
+      <div class="detail-actions">
+        <a href="{% url 'inventory:scan_result' carton.qr_token %}" class="btn btn-sm">{% icon "scan" 16 %} Stock In/Out</a>
+        <a href="{% url 'inventory:carton_edit' carton.pk %}" class="btn btn-sm btn-secondary">{% icon "edit" 16 %} Edit</a>
+        {% if not carton.is_deleted %}
+        <form method="post" action="{% url 'inventory:carton_delete' carton.pk %}" class="inline" onsubmit="return confirm('Delete this carton?')">{% csrf_token %}<button class="btn btn-sm btn-danger">{% icon "trash" 16 %} Delete</button></form>
+        {% else %}
+        <form method="post" action="{% url 'inventory:carton_restore' carton.pk %}" class="inline">{% csrf_token %}<button class="btn btn-sm btn-secondary">{% icon "restore" 16 %} Restore</button></form>
+        {% endif %}
+      </div>
     </div>
   </div>
-  <div class="card glass" style="text-align:center">
+  <div class="card glass detail-qr-card">
+    <span class="text-muted text-sm">Carton QR</span>
     <img src="{{ qr }}" alt="QR" class="qr-detail-img">
-    <a href="{% url 'inventory:labels_print' %}?c={{ carton.pk }}" class="btn btn-sm btn-secondary">{% icon "print" 16 %} Print</a>
+    <a href="{% url 'inventory:labels_print' %}?c={{ carton.pk }}" class="btn btn-sm btn-secondary">{% icon "print" 16 %} Print label</a>
   </div>
 </div>
 

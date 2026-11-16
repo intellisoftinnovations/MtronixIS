@@ -41,6 +41,7 @@
             <th style="width:36px; text-align:center;">
               <input type="checkbox" id="selectAll" title="Select all on this page" style="cursor:pointer">
             </th>
+            <th style="width:48px;"></th>
             <th>Code</th>
             <th>Product</th>
             <th>Inventory</th>
@@ -57,6 +58,7 @@
             <td style="text-align:center;">
               <input type="checkbox" name="c" value="{{ c.pk }}" class="carton-checkbox" style="cursor:pointer">
             </td>
+            <td class="thumb-cell">{% if c.product.image %}<img src="{{ c.product.image.url }}" alt="" class="thumb">{% else %}<span class="thumb-empty">{% icon "image" 16 %}</span>{% endif %}</td>
             <td><a href="{{ c.get_absolute_url }}"><strong>{{ c.carton_code }}</strong></a></td>
             <td>{{ c.product.name }}</td>
             <td>{{ c.inventory.name }}</td>
@@ -71,7 +73,7 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="9" class="text-muted">No cartons found.</td></tr>
+          <tr><td colspan="10" class="text-muted">No cartons found.</td></tr>
           {% endfor %}
         </tbody>
       </table>

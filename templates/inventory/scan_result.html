@@ -11,14 +11,22 @@
       {% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}">{% else %}<span class="detail-no-image">{% icon "image" 48 %}</span>{% endif %}
     </div>
     <div class="scan-product-info">
-      <h2>{{ product.name }}</h2>
-      <p class="text-muted">SKU: {{ product.sku }}</p>
+      <div class="detail-title-row">
+        <h2>{{ product.name }}</h2>
+        {% if mode == "carton" %}
+        <span class="badge badge-{{ carton.status|status_badge }}">{{ carton.get_status_display }}</span>
+        {% endif %}
+      </div>
+      <p class="text-muted text-sm">SKU: {{ product.sku }}</p>
       {% if mode == "carton" %}
-      <p>Inventory: <strong>{{ carton.inventory.name }}</strong> ({{ carton.inventory.code }})</p>
-      <p>Carton: <strong>{{ carton.carton_code }}</strong></p>
-      <div class="scan-stock">
-        <span class="stat-num">{{ carton.carton_count|intcomma }}</span>
-        <span class="text-muted">cartons ({{ carton.total_quantity|intcomma }} units)</span>
+      <p class="scan-meta">
+        Carton <a href="{{ carton.get_absolute_url }}"><strong>{{ carton.carton_code }}</strong></a>
+        · {{ carton.inventory.name }} <span class="text-muted">({{ carton.inventory.code }})</span>
+      </p>
+      <div class="detail-stats">
+        <span class="stat-pill"><strong>{{ carton.carton_count|intcomma }}</strong> cartons</span>
+        <span class="stat-pill"><strong>{{ carton.total_quantity|intcomma }}</strong> units</span>
+        <span class="stat-pill">{{ carton.qty_per_carton|intcomma }} / carton</span>
       </div>
       {% endif %}
     </div>
@@ -31,12 +39,15 @@
   {% endif %}
   {% if error %}<div class="toast toast-error">{{ error }}</div>{% endif %}
   <div class="scan-actions card glass">
-    <form method="post" action="{% url 'inventory:stock_confirm' %}" novalidate>
+    <h3 class="scan-section-title">Stock Movement</h3>
+    <form method="post" action="{% url 'inventory:stock_confirm' %}" novalidate id="stockMoveForm"
+          data-current-cartons="{{ carton.carton_count }}"
+          data-qty-per-carton="{{ carton.qty_per_carton }}">
       {% csrf_token %}
       {{ form.carton_id }}
       {{ form.idempotency_key }}
       <div class="stock-type-btns">
-        <label class="stock-type-btn stock-in{% if form.type.value == 'IN' %} selected{% endif %}">
+        <label class="stock-type-btn stock-in{% if form.type.value == 'IN' or not form.type.value %} selected{% endif %}">
           <input type="radio" name="type" value="IN" {% if form.type.value == 'IN' or not form.type.value %}checked{% endif %}> {% icon "arrow-down" 20 %} Stock In
         </label>
         <label class="stock-type-btn stock-out{% if form.type.value == 'OUT' %} selected{% endif %}">
@@ -59,27 +70,54 @@
         </div>
         {% for e in form.cartons.errors %}<p class="field-error">{{ e }}</p>{% endfor %}
       </div>
+      <div class="scan-preview-bar" id="liveStockPreview"></div>
       <div class="field"><label>{{ form.reference.label }}</label><input name="reference" class="input" value="{{ form.reference.value|default:'' }}" maxlength="100" autocomplete="off"></div>
       <div class="field"><label>{{ form.note.label }}</label><textarea name="note" class="input" rows="2" maxlength="500">{{ form.note.value|default:'' }}</textarea></div>
       <div class="sticky-submit">
-        <button type="submit" class="btn btn-block">Review &amp; Confirm</button>
+        <button type="submit" class="btn btn-block" {% if carton.status == "CLOSED" %}disabled{% endif %}>Review &amp; Confirm</button>
       </div>
     </form>
   </div>
   <script>
-  function stepQty(d){const i=document.getElementById('qtyInput');i.value=Math.max(1,parseInt(i.value||1)+d);}
-  function setQty(v){document.getElementById('qtyInput').value=v;}
-  document.querySelectorAll('.stock-type-btn').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.stock-type-btn').forEach(x=>x.classList.remove('selected'));b.classList.add('selected');}));
+  function updateStockPreview(){
+    const form=document.getElementById('stockMoveForm');
+    const out=document.getElementById('liveStockPreview');
+    const qtyEl=document.getElementById('qtyInput');
+    if(!form||!out||!qtyEl)return;
+    const cur=parseInt(form.dataset.currentCartons||'0',10);
+    const qpc=parseInt(form.dataset.qtyPerCarton||'1',10);
+    const move=Math.max(1,parseInt(qtyEl.value||'1',10)||1);
+    const isOut=form.querySelector('input[name="type"][value="OUT"]')?.checked;
+    const next=isOut?cur-move:cur+move;
+    const units=next*qpc;
+    out.classList.toggle('is-negative',next<0);
+    out.innerHTML=next<0
+      ?'<span>Not enough stock</span><strong>Only '+cur.toLocaleString()+' cartons available</strong>'
+      :'<span>After movement</span><strong>'+cur.toLocaleString()+' → '+next.toLocaleString()+' cartons ('+units.toLocaleString()+' units)</strong>';
+  }
+  function stepQty(d){const i=document.getElementById('qtyInput');i.value=Math.max(1,(parseInt(i.value||'1',10)||1)+d);updateStockPreview();}
+  function setQty(v){document.getElementById('qtyInput').value=v;updateStockPreview();}
+  document.querySelectorAll('.stock-type-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.stock-type-btn').forEach(x=>x.classList.remove('selected'));
+    b.classList.add('selected');
+    const r=b.querySelector('input[type="radio"]');if(r)r.checked=true;
+    updateStockPreview();
+  }));
+  document.getElementById('qtyInput')?.addEventListener('input',updateStockPreview);
+  updateStockPreview();
   </script>
 
   {% elif mode == "product" %}
   {# ---- Product-level: choose a carton ---- #}
   <div class="card glass">
-    <h3>Select a carton to Stock In / Out</h3>
+    <h3 class="scan-section-title">Select a carton to Stock In / Out</h3>
     {% for c in cartons %}
     <a href="{% url 'inventory:scan_result' c.qr_token %}" class="choose-item glass">
-      <strong>{{ c.carton_code }}</strong>
-      <span>{{ c.inventory.name }} · {{ c.carton_count|intcomma }} cartons</span>
+      <div class="choose-item-main">
+        <strong>{{ c.carton_code }}</strong>
+        <span class="badge badge-{{ c.status|status_badge }}">{{ c.get_status_display }}</span>
+      </div>
+      <span class="text-muted text-sm">{{ c.inventory.name }} · {{ c.carton_count|intcomma }} cartons ({{ c.total_quantity|intcomma }} units)</span>
     </a>
     {% empty %}
     <p class="text-muted">No cartons for this product in your inventories.</p>

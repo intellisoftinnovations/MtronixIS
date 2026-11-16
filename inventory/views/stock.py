@@ -1,3 +1,4 @@
+import io
 import re
 import uuid
 
@@ -12,7 +13,7 @@ from audit.models import ActivityLog
 from audit.utils import log_action
 from inventory.forms import StockForm
 from inventory.models import Product, StockMovement
-from inventory.pdf import generate_receipt_pdf
+from inventory.pdf import build_receipt_pdf
 from inventory.permissions import allowed_inventory_ids, can_access_inventory, cartons_for
 from inventory.services import StockError, preview_movement, record_movement
 
@@ -153,10 +154,9 @@ def movement_verify(request, token):
 @login_required
 def movement_pdf(request, pk):
     mv = _get_movement(request, pk)
-    if not mv.pdf or not mv.pdf.storage.exists(mv.pdf.name):
-        generate_receipt_pdf(mv, request)
+    content = build_receipt_pdf(mv, request)
     response = FileResponse(
-        mv.pdf.open("rb"),
+        io.BytesIO(content),
         content_type="application/pdf",
         as_attachment=request.GET.get("download") == "1",
         filename=f"{mv.receipt_no}.pdf",
@@ -169,9 +169,14 @@ def movement_pdf(request, pk):
 @require_POST
 def movement_regenerate_pdf(request, pk):
     mv = _get_movement(request, pk)
-    generate_receipt_pdf(mv, request)
+    if mv.pdf:
+        try:
+            mv.pdf.delete(save=False)
+        except Exception:
+            pass
+        StockMovement.objects.filter(pk=mv.pk).update(pdf="")
     log_action(request, ActivityLog.Action.PDF_REGENERATE, obj=mv, entity_repr=mv.receipt_no,
                product=mv.product, inventory=mv.inventory, movement=mv)
-    messages.success(request, f"PDF for {mv.receipt_no} regenerated.")
+    messages.success(request, f"PDF for {mv.receipt_no} is generated on demand without using storage.")
     return redirect(mv)
 

@@ -47,6 +47,8 @@ class PDFReceiptTests(TestCase):
         self.assertIn("BST", bd_str)
 
     def test_pdf_generation(self):
+        from django.urls import reverse
+
         mv, _ = record_movement(
             user=self.user,
             carton_id=self.carton.pk,
@@ -54,16 +56,26 @@ class PDFReceiptTests(TestCase):
             cartons=4,
             note="Regular replenishment",
         )
+        mv.refresh_from_db()
+        # Receipt PDFs are generated on demand and must not be stored on disk
+        self.assertFalse(bool(mv.pdf))
+
         pdf_bytes = build_receipt_pdf(mv)
-        # Verify valid PDF header
         self.assertTrue(pdf_bytes.startswith(b"%PDF-"))
         self.assertGreater(len(pdf_bytes), 1000)
 
-        # Test generate_receipt_pdf saves to movement
-        saved_mv = generate_receipt_pdf(mv)
-        saved_mv.refresh_from_db()
-        self.assertTrue(bool(saved_mv.pdf))
-        self.assertIn(saved_mv.receipt_no, saved_mv.pdf.name)
+        self.client.force_login(self.user)
+        session = self.client.session
+        session["session_version"] = self.user.session_version
+        session.save()
+
+        resp = self.client.get(reverse("inventory:movement_pdf", args=[mv.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "application/pdf")
+        body = b"".join(resp.streaming_content)
+        self.assertTrue(body.startswith(b"%PDF-"))
+        mv.refresh_from_db()
+        self.assertFalse(bool(mv.pdf))
 
     def test_labels_print_html_and_pdf(self):
         from django.urls import reverse

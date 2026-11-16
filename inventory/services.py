@@ -167,11 +167,5 @@ def record_movement(*, user, carton_id, movement_type, cartons, note="", referen
                 raise
             continue  # receipt number collision — retry
 
-    try:
-        from .pdf import generate_receipt_pdf
-
-        generate_receipt_pdf(mv, request)
-    except Exception:
-        logger.exception("PDF generation failed for %s (can be regenerated later).", mv.receipt_no)
     return mv, True
 
