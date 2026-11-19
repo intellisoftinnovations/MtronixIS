@@ -406,6 +406,40 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   window.addEventListener('beforeunload', stopStream);
+
+  // Offline product creation with compressed camera photo
+  const productForm = document.querySelector('.narrow-page form');
+  const isCreateMode = {% if product %}false{% else %}true{% endif %};
+  if (productForm && isCreateMode) {
+    productForm.addEventListener('submit', async function (e) {
+      if (navigator.onLine || !window.MtronixOffline) return;
+      e.preventDefault();
+      const name = (nameInput ? nameInput.value : '').trim();
+      const sku = (skuInput ? skuInput.value : '').trim().toUpperCase();
+      const descEl = document.getElementById('id_description');
+      const description = (descEl ? descEl.value : '').trim();
+      if (!name) {
+        if (camStatus) camStatus.innerHTML = '<span class="text-danger">Product name is required.</span>';
+        return;
+      }
+      const imgFile = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+      await window.MtronixOffline.enqueue({
+        kind: 'product_create',
+        name,
+        sku,
+        description,
+        image_blob: imgFile || null,
+        image_name: imgFile ? imgFile.name : null,
+      });
+      productForm.reset();
+      if (previewWrap) previewWrap.style.display = 'none';
+      if (clearPreviewBtn) clearPreviewBtn.style.display = 'none';
+      const notice = document.createElement('div');
+      notice.className = 'toast toast-success';
+      notice.textContent = 'Saved offline! "' + name + '"' + (imgFile ? ' (with photo)' : '') + ' will sync automatically when back online.';
+      productForm.prepend(notice);
+    });
+  }
 });
 </script>
 {% endblock %}

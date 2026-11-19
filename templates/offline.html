@@ -1,0 +1,20 @@
+{% extends "base_bare.html" %}
+{% load static %}
+
+{% block title %}Offline · {{ SYSTEM_NAME }}{% endblock %}
+
+{% block body %}
+<div class="auth-wrap" style="padding:24px">
+  <div class="card glass auth-card" style="text-align:center; max-width:440px">
+    <h2 style="margin-bottom:8px">You are offline</h2>
+    <p class="text-muted" style="margin-bottom:20px">
+      This page hasn't been cached yet. You can still scan QR codes, record Stock In / Stock Out, and add products offline — everything syncs automatically once internet returns.
+    </p>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <a href="/scan/" class="btn btn-block">Open Offline QR Scanner</a>
+      <a href="/" class="btn btn-secondary btn-block">Go to Cached Dashboard</a>
+      <button type="button" class="btn btn-secondary btn-block" onclick="window.location.reload()">Retry Connection</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

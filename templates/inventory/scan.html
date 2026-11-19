@@ -69,12 +69,15 @@
     {# Manual code entry fallback #}
     <div class="scan-fallback">
       <p class="text-muted" style="margin-bottom:8px">Or enter code / SKU manually:</p>
-      <form method="get" action="{% url 'inventory:scan_lookup' %}" class="scan-manual">
-        <input name="code" class="input" placeholder="QR token, carton code, or SKU" required autocomplete="off">
+      <form method="get" action="{% url 'inventory:scan_lookup' %}" class="scan-manual" id="manualLookupForm">
+        <input name="code" class="input" placeholder="QR token, carton code, or SKU" required autocomplete="off" id="manualCodeInput">
         <button class="btn">{% icon "search" 18 %} Look up</button>
       </form>
     </div>
   </div>
+
+  {# Offline Scan Result & Stock In/Out Panel #}
+  <div id="offlineResultPanel" hidden style="margin-top:16px"></div>
 </div>
 
 <style>
@@ -208,14 +211,153 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+  // Manual lookup intercepts offline queries using IndexedDB snapshot
+  const manualForm = document.getElementById('manualLookupForm');
+  if (manualForm) {
+    manualForm.addEventListener('submit', function(e) {
+      if (!navigator.onLine && window.MtronixOffline) {
+        e.preventDefault();
+        const code = (document.getElementById('manualCodeInput')?.value || '').trim();
+        if (code) handleOfflineLookup(code);
+      }
+    });
+  }
 });
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function handleOfflineLookup(rawCode) {
+  const status = document.getElementById('scanStatus');
+  const panel = document.getElementById('offlineResultPanel');
+  if (!panel || !window.MtronixOffline) return;
+
+  const hit = await window.MtronixOffline.lookupCode(rawCode);
+  if (!hit) {
+    status.innerHTML = '<span class="text-warning">Offline: No cached product or carton found for “' + escapeHtml(rawCode.slice(0, 50)) + '”.</span>';
+    panel.hidden = true;
+    return;
+  }
+
+  status.textContent = 'Loaded from offline cache.';
+  panel.hidden = false;
+
+  if (hit.mode === 'product' || hit.mode === 'choose') {
+    const title = hit.mode === 'product' ? escapeHtml(hit.product.name) : 'Choose carton (' + escapeHtml(hit.code) + ')';
+    const imgHtml = hit.product && hit.product.image_url
+      ? '<div class="scan-product-img" style="margin:0 auto 12px"><img src="' + escapeHtml(hit.product.image_url) + '" alt=""></div>'
+      : '';
+    const listHtml = (hit.cartons || []).map((c) => (
+      '<button type="button" class="choose-item glass offline-choose-btn" data-token="' + escapeHtml(c.qr_token) + '" style="width:100%; text-align:left; cursor:pointer">' +
+      '<div class="choose-item-main"><strong>' + escapeHtml(c.carton_code) + '</strong></div>' +
+      '<span class="text-muted text-sm">' + escapeHtml(c.inventory ? c.inventory.name : '') + ' · ' + Number(c.carton_count).toLocaleString() + ' cartons</span>' +
+      '</button>'
+    )).join('') || '<p class="text-muted">No cached cartons for this product.</p>';
+
+    panel.innerHTML = '<div class="card glass" style="text-align:center">' + imgHtml + '<h3 style="margin-bottom:10px">' + title + '</h3>' + listHtml + '</div>';
+    panel.querySelectorAll('.offline-choose-btn').forEach((btn) => {
+      btn.addEventListener('click', () => handleOfflineLookup(btn.dataset.token));
+    });
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+
+  const c = hit.carton;
+  const p = c.product || { name: 'Product', sku: '', image_url: '' };
+  const inv = c.inventory || { name: 'Inventory', code: '' };
+  const isClosed = c.status === 'CLOSED';
+  const imgHtml = p.image_url
+    ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.name) + '">'
+    : '<span class="detail-no-image">No photo</span>';
+
+  panel.innerHTML =
+    '<div class="scan-product card glass">' +
+      '<div class="scan-product-img">' + imgHtml + '</div>' +
+      '<div class="scan-product-info">' +
+        '<div class="detail-title-row"><h2>' + escapeHtml(p.name) + '</h2><span class="badge badge-muted">' + escapeHtml(c.status) + '</span></div>' +
+        '<p class="text-muted text-sm">SKU: ' + escapeHtml(p.sku) + '</p>' +
+        '<p class="scan-meta">Carton <strong>' + escapeHtml(c.carton_code) + '</strong> · ' + escapeHtml(inv.name) + '</p>' +
+        '<div class="detail-stats">' +
+          '<span class="stat-pill"><strong id="offCtnCount">' + Number(c.carton_count).toLocaleString() + '</strong> cartons</span>' +
+          '<span class="stat-pill"><strong id="offUnitCount">' + (Number(c.carton_count) * Number(c.qty_per_carton)).toLocaleString() + '</strong> units</span>' +
+          '<span class="stat-pill">' + Number(c.qty_per_carton).toLocaleString() + ' / carton</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="scan-actions card glass">' +
+      '<h3 class="scan-section-title">Offline Stock Movement</h3>' +
+      '<div id="offMoveMsg"></div>' +
+      '<form id="offlineStockForm">' +
+        '<div class="stock-type-btns">' +
+          '<label class="stock-type-btn stock-in selected"><input type="radio" name="off_type" value="IN" checked> Stock In</label>' +
+          '<label class="stock-type-btn stock-out"><input type="radio" name="off_type" value="OUT"> Stock Out</label>' +
+        '</div>' +
+        '<div class="field"><label>Cartons</label>' +
+          '<div class="stepper">' +
+            '<button type="button" class="stepper-btn" id="offMinus">−</button>' +
+            '<input type="number" class="input stepper-input" id="offQty" value="1" min="1" inputmode="numeric">' +
+            '<button type="button" class="stepper-btn" id="offPlus">+</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="field"><label>Reference (optional)</label><input class="input" id="offRef" maxlength="100"></div>' +
+        '<div class="field"><label>Note (optional)</label><textarea class="input" id="offNote" rows="2" maxlength="500"></textarea></div>' +
+        '<div class="sticky-submit"><button type="submit" class="btn btn-block" ' + (isClosed ? 'disabled' : '') + '>Save Offline (Auto-Sync)</button></div>' +
+      '</form>' +
+    '</div>';
+
+  const qtyInput = panel.querySelector('#offQty');
+  panel.querySelector('#offMinus').addEventListener('click', () => { qtyInput.value = Math.max(1, (parseInt(qtyInput.value || '1', 10) || 1) - 1); });
+  panel.querySelector('#offPlus').addEventListener('click', () => { qtyInput.value = Math.max(1, (parseInt(qtyInput.value || '1', 10) || 1) + 1); });
+  panel.querySelectorAll('.stock-type-btn').forEach((b) => {
+    b.addEventListener('click', () => {
+      panel.querySelectorAll('.stock-type-btn').forEach((x) => x.classList.remove('selected'));
+      b.classList.add('selected');
+      const r = b.querySelector('input'); if (r) r.checked = true;
+    });
+  });
+
+  panel.querySelector('#offlineStockForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const type = panel.querySelector('input[name="off_type"]:checked')?.value || 'IN';
+    const cartons = Math.max(1, parseInt(qtyInput.value || '1', 10) || 1);
+    const msgEl = panel.querySelector('#offMoveMsg');
+    if (type === 'OUT' && cartons > c.carton_count) {
+      msgEl.innerHTML = '<div class="toast toast-error">Not enough stock. Only ' + c.carton_count + ' carton(s) available locally.</div>';
+      return;
+    }
+    if (type === 'OUT' && (c.status === 'ON_HOLD' || c.status === 'DAMAGED')) {
+      msgEl.innerHTML = '<div class="toast toast-error">Cannot stock out while carton is ' + escapeHtml(c.status.toLowerCase()) + '.</div>';
+      return;
+    }
+    await window.MtronixOffline.enqueue({
+      kind: 'stock_movement',
+      carton_id: c.id,
+      type,
+      cartons,
+      reference: (panel.querySelector('#offRef')?.value || '').trim(),
+      note: (panel.querySelector('#offNote')?.value || '').trim(),
+    });
+    c.carton_count = type === 'OUT' ? c.carton_count - cartons : c.carton_count + cartons;
+    panel.querySelector('#offCtnCount').textContent = Number(c.carton_count).toLocaleString();
+    panel.querySelector('#offUnitCount').textContent = (Number(c.carton_count) * Number(c.qty_per_carton)).toLocaleString();
+    msgEl.innerHTML = '<div class="toast toast-success">Saved offline! ' + (type === 'IN' ? '+' : '-') + cartons + ' carton(s) queued to sync automatically when online.</div>';
+  });
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function onScanSuccess(text) {
   const status = document.getElementById('scanStatus');
-  status.textContent = 'QR Code found! Redirecting...';
   if (html5QrCode && isScanningLive) {
     html5QrCode.stop().catch(() => {});
   }
+  if (!navigator.onLine && window.MtronixOffline) {
+    status.textContent = 'QR Code found! Looking up offline...';
+    handleOfflineLookup(text);
+    return;
+  }
+  status.textContent = 'QR Code found! Redirecting...';
   const m = text.match(/\/q\/([A-Za-z0-9_\-]{10,64})/);
   const code = m ? m[1] : text;
   window.location.href = "{% url 'inventory:scan_lookup' %}?code=" + encodeURIComponent(code);

@@ -1,11 +1,16 @@
 from django.urls import path
 
-from .views import cartons, dashboard, inventories, labels, products, public, stock
+from .views import cartons, dashboard, inventories, labels, offline, products, public, pwa, stock
 
 app_name = "inventory"
 
 urlpatterns = [
     path("", dashboard.dashboard, name="dashboard"),
+    path("manifest.json", pwa.manifest_json, name="manifest_json"),
+    path("sw.js", pwa.service_worker, name="service_worker"),
+    path("offline/", pwa.offline_page, name="offline_page"),
+    path("api/offline/snapshot/", offline.offline_snapshot, name="offline_snapshot"),
+    path("api/offline/sync/", offline.offline_sync, name="offline_sync"),
     path("api/dashboard/summary/", dashboard.dashboard_summary_api, name="dashboard_api"),
     # Products
     path("products/", products.product_list, name="product_list"),

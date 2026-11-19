@@ -1142,3 +1142,20 @@ button.mnav-item { background: none; border: none; font-family: inherit; cursor:
   background: rgba(22,31,36,0.9); color: #fff; font-size: 22px; line-height: 1;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
+
+/* ---- Offline / PWA Status Bar ---- */
+.offline-status-bar {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 14px; margin: 0 16px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(198, 172, 142, 0.16); border: 1px solid rgba(198, 172, 142, 0.45);
+  color: #fff; font-size: 13px; font-weight: 500;
+}
+.offline-status-bar[hidden] { display: none; }
+.offline-status-bar.is-offline {
+  background: rgba(251, 191, 36, 0.14); border-color: rgba(251, 191, 36, 0.45);
+}
+.offline-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+}
+.offline-status-bar.is-offline .offline-dot { background: #fbbf24; }

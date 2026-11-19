@@ -175,6 +175,8 @@ MTX_CSP = (
     "img-src 'self' data: blob: https:; "
     "media-src 'self' blob: mediastream:; "
     "connect-src 'self'; "
+    "worker-src 'self'; "
+    "manifest-src 'self'; "
     "object-src 'none'; "
     "base-uri 'self'; "
     "form-action 'self'; "

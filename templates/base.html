@@ -41,6 +41,7 @@
       <button class="icon-btn menu-btn" id="menuBtn" aria-label="Toggle navigation menu" title="Toggle menu">{% icon "menu" 20 %}</button>
       <h1 class="topbar-title">{% block page_title %}Dashboard{% endblock %}</h1>
       <div class="topbar-actions">
+        <button type="button" class="btn btn-sm btn-secondary pwa-install-btn" hidden title="Install App">{% icon "download" 16 %}<span class="hide-mobile"> Install</span></button>
         <a href="{% url 'inventory:scan' %}" class="btn btn-sm" title="Scan QR">{% icon "scan" 18 %}<span class="hide-mobile"> Scan</span></a>
         <a href="{% url 'accounts:profile' %}" class="icon-btn" title="Profile">{% icon "user" %}</a>
         <form method="post" action="{% url 'accounts:logout' %}" class="inline">
@@ -49,6 +50,12 @@
         </form>
       </div>
     </header>
+
+    <div id="offlineStatusBar" class="offline-status-bar" hidden>
+      <span class="offline-dot"></span>
+      <span class="offline-bar-text">Offline mode</span>
+      <button type="button" class="btn btn-sm btn-secondary offline-sync-btn" hidden>Sync now</button>
+    </div>
 
     {# ---- Messages ---- #}
     {% if messages %}
@@ -263,5 +270,6 @@ document.querySelectorAll('form.filter-bar').forEach(form => {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) close(); });
 })();
 </script>
+<script src="{% static 'js/offline.js' %}?v={{ CSS_VERSION }}"></script>
 {% endblock %}
 

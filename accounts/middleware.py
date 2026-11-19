@@ -25,7 +25,15 @@ class SecurityHeadersMiddleware:
 class SessionGuardMiddleware:
     """Enforces force-logout (session_version) and mandatory admin 2FA."""
 
-    ALLOWED_PREFIXES_WITHOUT_2FA = ("/account/2fa/setup/", "/logout/", "/static/", "/media/")
+    ALLOWED_PREFIXES_WITHOUT_2FA = (
+        "/account/2fa/setup/",
+        "/logout/",
+        "/static/",
+        "/media/",
+        "/sw.js",
+        "/manifest.json",
+        "/offline/",
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
